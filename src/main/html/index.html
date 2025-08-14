@@ -4,9 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EAS Attestor for Github</title>
-    <script src="https://unpkg.com/viem@2.21.19/dist/index.iife.js"></script>
     <script src="https://unpkg.com/ethers@6.13.4/dist/ethers.umd.min.js"></script>
-    <script src="https://unpkg.com/@ethereum-attestation-service/eas-sdk@2.7.0/dist/index.umd.js"></script>
+    <script type="module">
+        // Load EAS SDK from ESM.sh (the working CDN)
+        const easModule = await import('https://esm.sh/@ethereum-attestation-service/eas-sdk@2.7.0');
+        window.EAS = easModule.EAS;
+        window.SchemaEncoder = easModule.SchemaEncoder;
+        console.log('✅ EAS SDK loaded successfully');
+    </script>
     <style>
         * {
             margin: 0;
@@ -30,9 +35,49 @@
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
             padding: 40px;
-            max-width: 600px;
-            width: 90%;
+            max-width: 1200px;
+            width: 95%;
             text-align: center;
+        }
+
+        .workflow {
+            display: flex;
+            gap: 20px;
+            margin-top: 30px;
+            overflow-x: auto;
+            padding-bottom: 10px;
+        }
+
+        .step-card {
+            flex: 1;
+            min-width: 280px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: left;
+            border: 2px solid #e9ecef;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .step-card.active {
+            border-color: #667eea;
+            background: #f8f9ff;
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.1);
+        }
+
+        .step-card.completed {
+            border-color: #28a745;
+            background: #f8fff9;
+        }
+
+        .step-card.disabled {
+            opacity: 0.5;
+        }
+
+        .step-content {
+            min-height: 200px;
         }
 
         h1 {
@@ -222,41 +267,57 @@
         <h1>🔗 EAS Attestor for Github</h1>
         <p class="subtitle">Link your GitHub username to your Ethereum address with cryptographic proof</p>
         
-        <div class="step" id="step1">
-            <h3><span class="step-indicator">1</span>Connect Your Wallet</h3>
-            <p>Connect your Ethereum wallet to get started. We support MetaMask and other Web3 wallets.</p>
-            <button id="connectWallet" onclick="connectWallet()">Connect Wallet</button>
-            <div id="walletStatus"></div>
-        </div>
-
-        <div class="step hidden" id="step2">
-            <h3><span class="step-indicator">2</span>Enter GitHub Username</h3>
-            <p>Enter your GitHub username that you want to link to your Ethereum address.</p>
-            <div class="input-group">
-                <label for="githubUsername">GitHub Username:</label>
-                <input type="text" id="githubUsername" placeholder="e.g., octocat" />
+        <div class="workflow">
+            <!-- Step 1: Connect Wallet -->
+            <div class="step-card active" id="card1">
+                <h3><span class="step-indicator active">1</span>Connect Wallet</h3>
+                <div class="step-content">
+                    <p>Connect your Ethereum wallet to get started. We support MetaMask and other Web3 wallets.</p>
+                    <button id="connectWallet" onclick="connectWallet()">Connect Wallet</button>
+                    <div id="walletStatus"></div>
+                </div>
             </div>
-            <button id="signMessage" onclick="signMessage()" disabled>Sign Verification Message</button>
-            <div id="signatureStatus"></div>
-        </div>
 
-        <div class="step hidden" id="step3">
-            <h3><span class="step-indicator">3</span>Create GitHub Gist</h3>
-            <p>Copy the JSON below and create a new public GitHub Gist with it. Name the file <code>attestation.json</code>.</p>
-            <div id="jsonOutput" class="code-block hidden"></div>
-            <button class="copy-button hidden" id="copyJson" onclick="copyJson()">📋 Copy JSON</button>
-            <div class="input-group">
-                <label for="gistUrl">Paste your Gist URL here:</label>
-                <input type="text" id="gistUrl" placeholder="https://gist.github.com/username/..." />
+            <!-- Step 2: Sign Message -->
+            <div class="step-card disabled" id="card2">
+                <h3><span class="step-indicator">2</span>Sign Message</h3>
+                <div class="step-content">
+                    <p>Enter your GitHub username and sign a verification message.</p>
+                    <div class="input-group">
+                        <label for="githubUsername">GitHub Username:</label>
+                        <input type="text" id="githubUsername" placeholder="e.g., octocat" />
+                    </div>
+                    <button id="signMessage" onclick="signMessage()" disabled>Sign Verification Message</button>
+                    <div id="signatureStatus"></div>
+                </div>
             </div>
-            <button id="submitGist" onclick="submitGist()" disabled>Validate & Submit (30-120s)</button>
-            <div id="gistStatus"></div>
-        </div>
 
-        <div class="step hidden" id="step4">
-            <h3><span class="step-indicator completed">✓</span>Attestation Complete!</h3>
-            <p>Your GitHub username has been linked to your Ethereum address. The automated system will process your submission within 15 minutes.</p>
-            <div id="completionStatus"></div>
+            <!-- Step 3: Create Gist & Validate -->
+            <div class="step-card disabled" id="card3">
+                <h3><span class="step-indicator">3</span>Create Gist & Validate</h3>
+                <div class="step-content">
+                    <p>Create a GitHub gist with your signed data and trigger validation.</p>
+                    <div id="jsonOutput" class="code-block hidden"></div>
+                    <button class="copy-button hidden" id="copyJson" onclick="copyJson()">📋 Copy JSON</button>
+                    <div class="input-group">
+                        <label for="gistUrl">Paste your Gist URL here:</label>
+                        <input type="text" id="gistUrl" placeholder="https://gist.github.com/username/..." />
+                    </div>
+                    <button id="validateGist" onclick="validateGist()" disabled>Validate (30-120s)</button>
+                    <div id="validationStatus"></div>
+                </div>
+            </div>
+
+            <!-- Step 4: Submit to Blockchain -->
+            <div class="step-card disabled" id="card4">
+                <h3><span class="step-indicator">4</span>Submit to Blockchain</h3>
+                <div class="step-content">
+                    <p>Submit your validated attestation to the blockchain.</p>
+                    <button id="submitAttestation" onclick="submitAttestation()" disabled>Submit Attestation</button>
+                    <div id="submissionStatus"></div>
+                    <div id="completionStatus"></div>
+                </div>
+            </div>
         </div>
 
         <div class="step" id="revocationPanel">
@@ -285,6 +346,11 @@
         let signature = null;
         let verificationData = null;
         let provider = null;
+
+        // Debug: Check what's available on window
+        console.log('Available on window:', Object.keys(window).filter(k => k.includes('EAS') || k.includes('Schema')));
+        console.log('window.EAS:', window.EAS);
+        console.log('window.ethers:', window.ethers);
 
         // EAS Contract addresses on Base networks
         const EAS_ADDRESSES = {
@@ -724,7 +790,7 @@
                 // Initialize EAS SDK
                 const provider = new ethers.BrowserProvider(window.ethereum);
                 const signer = await provider.getSigner();
-                const eas = new window.EAS.EAS(easAddress);
+                const eas = new window.EAS(easAddress);
                 eas.connect(signer);
 
                 // Extract verification data
@@ -758,7 +824,7 @@
                 button.textContent = 'Submitting to Blockchain...';
 
                 // Encode the attestation data with validation fields
-                const schemaEncoder = new window.EAS.SchemaEncoder("string domain,string identifier,string proofUrl,bytes validationSig,uint256 validatedAt,address validator");
+                const schemaEncoder = new window.SchemaEncoder("string domain,string identifier,string proofUrl,bytes validationSig,uint256 validatedAt,address validator");
                 const encodedData = schemaEncoder.encodeData([
                     { name: "domain", value: "github.com", type: "string" },
                     { name: "identifier", value: githubUsername, type: "string" },
@@ -866,7 +932,7 @@
                 // Initialize EAS SDK
                 const provider = new ethers.BrowserProvider(window.ethereum);
                 const signer = await provider.getSigner();
-                const eas = new window.EAS.EAS(easAddress);
+                const eas = new window.EAS(easAddress);
                 eas.connect(signer);
 
                 // Revoke the attestation
