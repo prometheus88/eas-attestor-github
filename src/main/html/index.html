@@ -377,6 +377,10 @@
                 document.getElementById('step1').querySelector('.step-indicator').classList.add('completed');
                 document.getElementById('step2').classList.remove('hidden');
                 enableUsernameInput();
+                
+                // Reset button
+                button.disabled = false;
+                button.textContent = '✅ Connected';
 
             } catch (error) {
                 status.innerHTML = `
@@ -441,6 +445,10 @@
                 document.getElementById('step2').querySelector('.step-indicator').classList.add('completed');
                 document.getElementById('step3').classList.remove('hidden');
                 showJsonOutput();
+                
+                // Reset button
+                button.disabled = false;
+                button.textContent = '✅ Signed';
 
             } catch (error) {
                 status.innerHTML = `
