@@ -237,6 +237,17 @@
             <div id="completionStatus"></div>
         </div>
 
+        <div class="step" id="revocationPanel">
+            <h3><span class="step-indicator">🗑️</span>Revoke Existing Attestation</h3>
+            <p>If you need to revoke a previous attestation (for testing or corrections), enter the attestation UID below.</p>
+            <div class="input-group">
+                <label for="attestationUID">Attestation UID:</label>
+                <input type="text" id="attestationUID" placeholder="0x1234567890abcdef..." />
+            </div>
+            <button id="revokeAttestation" onclick="revokeAttestation()" disabled>Revoke Attestation</button>
+            <div id="revocationStatus"></div>
+        </div>
+
         <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e9ecef; font-size: 0.9rem; color: #6c757d;">
             <p>🔒 All cryptographic operations happen in your browser. No private keys are transmitted.</p>
             <p style="margin-top: 10px;">
@@ -270,11 +281,11 @@
             'base': 8453
         };
 
-        // Schema for domain identifier to Ethereum address attestation
-        // Schema: "string domain,string identifier,string proofUrl"  
+        // Schema for validated domain identifier to Ethereum address attestation
+        // Schema: "string domain,string identifier,string proofUrl,bytes validationSig,uint256 validatedAt,address validator"  
         // domain = "github.com", identifier = github username, proofUrl = gist URL
-        // TODO: Create this schema on EAS Schema Registry first
-        const ATTESTATION_SCHEMA_UID = "0xc7144184b5fe903cf31a85811a1e1548df8872b0cbc40d2747054cc136941546" // Base mainnet & Sepolia
+        // validationSig = GitHub Actions validation signature, validatedAt = timestamp, validator = trusted validator address
+        const ATTESTATION_SCHEMA_UID = "0xe5daad34f7c6c87eb60d2d32bde166ff4b87c8d165a95af58a93e774fc28c96e" // Base Sepolia (new schema)
 
         async function connectWallet() {
             const button = document.getElementById('connectWallet');
@@ -469,12 +480,21 @@
                 // Extract verification data
                 const githubUsername = verificationData.github_username;
 
-                // Encode the attestation data with domain, identifier, and proof URL
-                const schemaEncoder = new EAS.SchemaEncoder("string domain,string identifier,string proofUrl");
+                // TODO: Replace with actual GitHub Actions validation
+                // For now, using placeholder validation data for testing
+                const validationSig = "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"; // Placeholder
+                const validatedAt = Math.floor(Date.now() / 1000); // Current timestamp
+                const validator = "0x0000000000000000000000000000000000000000"; // Placeholder validator address
+
+                // Encode the attestation data with validation fields
+                const schemaEncoder = new EAS.SchemaEncoder("string domain,string identifier,string proofUrl,bytes validationSig,uint256 validatedAt,address validator");
                 const encodedData = schemaEncoder.encodeData([
                     { name: "domain", value: "github.com", type: "string" },
                     { name: "identifier", value: githubUsername, type: "string" },
-                    { name: "proofUrl", value: gistUrl, type: "string" }
+                    { name: "proofUrl", value: gistUrl, type: "string" },
+                    { name: "validationSig", value: validationSig, type: "bytes" },
+                    { name: "validatedAt", value: validatedAt, type: "uint256" },
+                    { name: "validator", value: validator, type: "address" }
                 ]);
 
                 // Create the attestation
@@ -537,8 +557,102 @@
             `;
         }
 
+        async function revokeAttestation() {
+            const button = document.getElementById('revokeAttestation');
+            const status = document.getElementById('revocationStatus');
+            const uid = document.getElementById('attestationUID').value.trim();
+            
+            try {
+                button.disabled = true;
+                button.textContent = 'Revoking...';
+                
+                if (!uid) {
+                    throw new Error('Please enter an attestation UID');
+                }
+                
+                if (!walletAddress) {
+                    throw new Error('Please connect your wallet first');
+                }
+                
+                // Get current network
+                const chainId = await window.ethereum.request({
+                    method: 'eth_chainId'
+                });
+                const networkName = Object.keys(CHAIN_IDS).find(key => 
+                    CHAIN_IDS[key] === parseInt(chainId, 16)
+                );
+                
+                if (!networkName) {
+                    throw new Error('Please switch to Base or Base Sepolia network');
+                }
+
+                // Get EAS contract address for this network
+                const easAddress = EAS_ADDRESSES[networkName]?.eas;
+                if (!easAddress) {
+                    throw new Error('EAS not deployed on this network');
+                }
+
+                // Initialize EAS SDK
+                const provider = new ethers.BrowserProvider(window.ethereum);
+                const signer = await provider.getSigner();
+                const eas = new EAS.EAS(easAddress);
+                eas.connect(signer);
+
+                // Revoke the attestation
+                const tx = await eas.revoke({
+                    schema: ATTESTATION_SCHEMA_UID,
+                    data: {
+                        uid: uid,
+                        value: 0n
+                    }
+                });
+
+                status.innerHTML = `
+                    <div class="status success">
+                        <strong>🚀 Revocation Submitted!</strong><br>
+                        Transaction: <code>${tx.txHash}</code><br>
+                        <small>Waiting for confirmation...</small>
+                    </div>
+                `;
+
+                // Wait for transaction confirmation
+                const receipt = await tx.wait();
+                
+                status.innerHTML = `
+                    <div class="status success">
+                        <strong>✅ Attestation Revoked!</strong><br>
+                        Transaction: <code>${receipt.transactionHash}</code><br>
+                        <small>UID ${uid} has been successfully revoked</small>
+                    </div>
+                `;
+
+            } catch (error) {
+                status.innerHTML = `
+                    <div class="status error">
+                        <strong>❌ Revocation Failed:</strong> ${error.message}
+                    </div>
+                `;
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Revoke Attestation';
+            }
+        }
+
+        function enableRevocationInput() {
+            const input = document.getElementById('attestationUID');
+            const button = document.getElementById('revokeAttestation');
+            
+            input.addEventListener('input', () => {
+                const uid = input.value.trim();
+                button.disabled = uid.length === 0 || !uid.startsWith('0x');
+            });
+        }
+
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', () => {
+            // Enable revocation input
+            enableRevocationInput();
+            
             // Check if wallet is already connected
             if (typeof window.ethereum !== 'undefined') {
                 window.ethereum.request({ method: 'eth_accounts' })
