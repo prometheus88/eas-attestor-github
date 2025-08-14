@@ -249,7 +249,7 @@
                 <label for="gistUrl">Paste your Gist URL here:</label>
                 <input type="text" id="gistUrl" placeholder="https://gist.github.com/username/..." />
             </div>
-            <button id="submitGist" onclick="submitGist()" disabled>Submit to Blockchain</button>
+            <button id="submitGist" onclick="submitGist()" disabled>Validate & Submit (30-120s)</button>
             <div id="gistStatus"></div>
         </div>
 
@@ -686,7 +686,7 @@
             
             try {
                 button.disabled = true;
-                button.textContent = 'Creating Attestation...';
+                button.textContent = 'Validating...';
 
                 // Check if we're on a supported network
                 const chainId = await window.ethereum.request({
@@ -740,6 +740,15 @@
                 const validatedAt = validationResult.validatedAt;
                 const validator = validationResult.validator;
 
+                // Update status to show blockchain submission
+                status.innerHTML = `
+                    <div class="status info">
+                        <strong>✅ Validation Complete!</strong><br>
+                        Submitting attestation to blockchain...
+                    </div>
+                `;
+                button.textContent = 'Submitting to Blockchain...';
+
                 // Encode the attestation data with validation fields
                 const schemaEncoder = new window.SchemaEncoder("string domain,string identifier,string proofUrl,bytes validationSig,uint256 validatedAt,address validator");
                 const encodedData = schemaEncoder.encodeData([
@@ -792,7 +801,7 @@
                     </div>
                 `;
                 button.disabled = false;
-                button.textContent = 'Submit to Blockchain';
+                button.textContent = 'Validate & Submit (30-120s)';
             }
         }
 
