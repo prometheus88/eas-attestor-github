@@ -28,7 +28,7 @@ jobs:
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Build site
-        run: task build
+        run: task app:build
           
       - name: Setup Pages
         uses: actions/configure-pages@v5
