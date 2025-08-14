@@ -1,0 +1,122 @@
+name: Validate Attestation
+
+on:
+  repository_dispatch:
+    types: [validate-attestation]
+  workflow_dispatch:
+    inputs:
+      identifier:
+        description: 'GitHub username'
+        required: true
+      proofUrl:
+        description: 'Gist URL'
+        required: true
+      ethereumAddress:
+        description: 'Ethereum address'
+        required: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate GitHub Gist
+        id: validate
+        env:
+          DOMAIN: ${{ github.event.client_payload.domain || 'github.com' }}
+          IDENTIFIER: ${{ github.event.client_payload.identifier || inputs.identifier }}
+          PROOF_URL: ${{ github.event.client_payload.proofUrl || inputs.proofUrl }}
+          ETHEREUM_ADDRESS: ${{ github.event.client_payload.ethereumAddress || inputs.ethereumAddress }}
+          NETWORK: ${{ github.event.client_payload.network || 'sepolia' }}
+          CALLBACK_ID: ${{ github.event.client_payload.callbackId || github.run_id }}
+        run: |
+          echo "🔍 Validating attestation for: $IDENTIFIER"
+          echo "📝 Gist URL: $PROOF_URL"
+          echo "🔗 Ethereum Address: $ETHEREUM_ADDRESS"
+          echo "🌐 Network: $NETWORK"
+          echo "🆔 Callback ID: $CALLBACK_ID"
+          
+          # Extract gist ID from URL
+          GIST_ID=$(echo "$PROOF_URL" | sed -n 's/.*gist\.github\.com\/[^\/]*\/\([a-f0-9]\+\).*/\1/p')
+          echo "📄 Gist ID: $GIST_ID"
+          
+          if [ -z "$GIST_ID" ]; then
+            echo "❌ Invalid gist URL format"
+            exit 1
+          fi
+          
+          # Fetch gist content
+          echo "📥 Fetching gist content..."
+          GIST_RESPONSE=$(curl -s "https://api.github.com/gists/$GIST_ID")
+          
+          # Check if gist exists
+          if echo "$GIST_RESPONSE" | grep -q '"message": "Not Found"'; then
+            echo "❌ Gist not found"
+            exit 1
+          fi
+          
+          # Extract gist owner
+          GIST_OWNER=$(echo "$GIST_RESPONSE" | jq -r '.owner.login')
+          echo "👤 Gist owner: $GIST_OWNER"
+          
+          # Verify gist owner matches identifier
+          if [ "$GIST_OWNER" != "$IDENTIFIER" ]; then
+            echo "❌ Gist owner ($GIST_OWNER) does not match identifier ($IDENTIFIER)"
+            exit 1
+          fi
+          
+          # Get gist content
+          GIST_CONTENT=$(echo "$GIST_RESPONSE" | jq -r '.files | to_entries | .[0].value.content')
+          echo "📋 Gist content preview: $(echo "$GIST_CONTENT" | head -c 100)..."
+          
+          # Verify the content contains the required fields
+          if ! echo "$GIST_CONTENT" | grep -q "github_username.*$IDENTIFIER"; then
+            echo "❌ Gist does not contain expected github_username"
+            exit 1
+          fi
+          
+          if ! echo "$GIST_CONTENT" | grep -q "address.*$ETHEREUM_ADDRESS"; then
+            echo "❌ Gist does not contain expected ethereum address"
+            exit 1
+          fi
+          
+          # Generate mock validation signature (in production, this would be cryptographically signed)
+          VALIDATION_SIG="0x$(echo -n "$IDENTIFIER$ETHEREUM_ADDRESS$(date +%s)" | sha256sum | cut -d' ' -f1)"
+          VALIDATED_AT=$(date +%s)
+          VALIDATOR_ADDRESS="0x742d35Cc6251C8d85Ab4aE3E46C8B4C3F0f5D47E"
+          
+          echo "✅ Validation completed successfully!"
+          echo "🔐 Validation signature: $VALIDATION_SIG"
+          echo "⏰ Validated at: $VALIDATED_AT"
+          echo "🏛️ Validator: $VALIDATOR_ADDRESS"
+          
+          # Output results for polling
+          echo "validation_sig=$VALIDATION_SIG" >> $GITHUB_OUTPUT
+          echo "validated_at=$VALIDATED_AT" >> $GITHUB_OUTPUT
+          echo "validator=$VALIDATOR_ADDRESS" >> $GITHUB_OUTPUT
+          echo "success=true" >> $GITHUB_OUTPUT
+
+      - name: Save validation results
+        if: steps.validate.outcome == 'success'
+        env:
+          CALLBACK_ID: ${{ github.event.client_payload.callbackId || github.run_id }}
+        run: |
+          # Create results file that can be polled
+          mkdir -p ./validation-results
+          cat > "./validation-results/${CALLBACK_ID}.json" << EOF
+          {
+            "success": true,
+            "validationSig": "${{ steps.validate.outputs.validation_sig }}",
+            "validatedAt": ${{ steps.validate.outputs.validated_at }},
+            "validator": "${{ steps.validate.outputs.validator }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+          echo "💾 Saved validation results to validation-results/${CALLBACK_ID}.json"
