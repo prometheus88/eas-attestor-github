@@ -1,0 +1,69 @@
+name: Process Attestations
+
+on:
+  schedule:
+    # Run every 15 minutes
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+    inputs:
+      network:
+        description: 'Network to process'
+        required: true
+        default: 'sepolia'
+        type: choice
+        options:
+        - sepolia
+        - mainnet
+
+jobs:
+  attest:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.network || 'sepolia' }}
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Setup environment
+        run: |
+          NETWORK=${{ github.event.inputs.network || 'sepolia' }}
+          if [ "$NETWORK" = "mainnet" ]; then
+            echo "RPC_URL=${{ secrets.BASE_MAINNET_RPC_URL }}" >> $GITHUB_ENV
+            echo "BASESCAN_API_KEY=${{ secrets.BASESCAN_API_KEY }}" >> $GITHUB_ENV
+            echo "EXPLORER_URL=https://api.basescan.org/api" >> $GITHUB_ENV
+          else
+            echo "RPC_URL=${{ secrets.BASE_SEPOLIA_RPC_URL }}" >> $GITHUB_ENV
+            echo "BASESCAN_API_KEY=${{ secrets.BASESCAN_SEPOLIA_API_KEY }}" >> $GITHUB_ENV
+            echo "EXPLORER_URL=https://api-sepolia.basescan.org/api" >> $GITHUB_ENV
+          fi
+          echo "NETWORK=$NETWORK" >> $GITHUB_ENV
+
+      - name: Process attestations
+        run: python scripts/task/app/process_attestations.py
+        env:
+          PRIVATE_KEY: ${{ secrets.ATTEST_PRIVATE_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RPC_URL: ${{ env.RPC_URL }}
+          BASESCAN_API_KEY: ${{ env.BASESCAN_API_KEY }}
+          EXPLORER_URL: ${{ env.EXPLORER_URL }}
+          NETWORK: ${{ env.NETWORK }}
+
+      - name: Commit state
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          if git diff --quiet; then
+            echo "No changes to commit"
+          else
+            git add state/
+            git commit -m "Update attestation state [skip ci]"
+            git push
+          fi
