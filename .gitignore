@@ -33,3 +33,9 @@ Thumbs.db
 /tmp/
 *.pid
 *.backup
+
+# Vim
+*.swp
+*.swo
+*.un~
+*~

@@ -21,26 +21,27 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Install Task
+        uses: arduino/setup-task@v1
+        with:
+          version: 3.x
+
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: nightly
 
-      - name: Run Forge build
-        run: |
-          forge --version
-          forge build --sizes
+      - name: Run health checks
+        run: task doctor
+        id: doctor
+
+      - name: Run build
+        run: task build
         id: build
 
-      - name: Run Forge tests
-        run: |
-          forge test -vvv
+      - name: Run tests
+        run: task test
         id: test
-
-      - name: Run Forge coverage
-        run: |
-          forge coverage --report lcov
-        id: coverage
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v3

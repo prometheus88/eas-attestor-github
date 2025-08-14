@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EAS Attestor for Github</title>
+    <script src="https://unpkg.com/viem@2.21.19/dist/index.iife.js"></script>
+    <script src="https://unpkg.com/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+    <script src="https://unpkg.com/@ethereum-attestation-service/eas-sdk@2.7.0/dist/index.umd.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            max-width: 600px;
+            width: 90%;
+            text-align: center;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 2.2rem;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            color: #7f8c8d;
+            margin-bottom: 40px;
+            font-size: 1.1rem;
+        }
+
+        .step {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 20px 0;
+            text-align: left;
+            border-left: 4px solid #667eea;
+        }
+
+        .step h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+
+        .step p {
+            color: #6c757d;
+            margin-bottom: 15px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            min-width: 140px;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        button:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .input-group {
+            margin: 15px 0;
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #2c3e50;
+            font-weight: 600;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-weight: 600;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .code-block {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.9rem;
+            text-align: left;
+            overflow-x: auto;
+        }
+
+        .copy-button {
+            background: #28a745;
+            font-size: 0.8rem;
+            padding: 6px 12px;
+            margin-top: 10px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .step-indicator {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #667eea;
+            color: white;
+            font-weight: bold;
+            line-height: 24px;
+            margin-right: 10px;
+            font-size: 0.9rem;
+        }
+
+        .completed {
+            background: #28a745;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 25px;
+                margin: 20px;
+            }
+            
+            h1 {
+                font-size: 1.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔗 EAS Attestor for Github</h1>
+        <p class="subtitle">Link your GitHub username to your Ethereum address with cryptographic proof</p>
+        
+        <div class="step" id="step1">
+            <h3><span class="step-indicator">1</span>Connect Your Wallet</h3>
+            <p>Connect your Ethereum wallet to get started. We support MetaMask and other Web3 wallets.</p>
+            <button id="connectWallet" onclick="connectWallet()">Connect Wallet</button>
+            <div id="walletStatus"></div>
+        </div>
+
+        <div class="step hidden" id="step2">
+            <h3><span class="step-indicator">2</span>Enter GitHub Username</h3>
+            <p>Enter your GitHub username that you want to link to your Ethereum address.</p>
+            <div class="input-group">
+                <label for="githubUsername">GitHub Username:</label>
+                <input type="text" id="githubUsername" placeholder="e.g., octocat" />
+            </div>
+            <button id="signMessage" onclick="signMessage()" disabled>Sign Verification Message</button>
+            <div id="signatureStatus"></div>
+        </div>
+
+        <div class="step hidden" id="step3">
+            <h3><span class="step-indicator">3</span>Create GitHub Gist</h3>
+            <p>Copy the JSON below and create a new public GitHub Gist with it. Name the file <code>attestation.json</code>.</p>
+            <div id="jsonOutput" class="code-block hidden"></div>
+            <button class="copy-button hidden" id="copyJson" onclick="copyJson()">📋 Copy JSON</button>
+            <div class="input-group">
+                <label for="gistUrl">Paste your Gist URL here:</label>
+                <input type="text" id="gistUrl" placeholder="https://gist.github.com/username/..." />
+            </div>
+            <button id="submitGist" onclick="submitGist()" disabled>Submit to Blockchain</button>
+            <div id="gistStatus"></div>
+        </div>
+
+        <div class="step hidden" id="step4">
+            <h3><span class="step-indicator completed">✓</span>Attestation Complete!</h3>
+            <p>Your GitHub username has been linked to your Ethereum address. The automated system will process your submission within 15 minutes.</p>
+            <div id="completionStatus"></div>
+        </div>
+
+        <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e9ecef; font-size: 0.9rem; color: #6c757d;">
+            <p>🔒 All cryptographic operations happen in your browser. No private keys are transmitted.</p>
+            <p style="margin-top: 10px;">
+                <a href="./docs/" style="color: #667eea; text-decoration: none;">📖 Documentation</a> | 
+                <a href="https://github.com/username/repo" style="color: #667eea; text-decoration: none;">💻 Source Code</a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let walletAddress = null;
+        let signature = null;
+        let verificationData = null;
+        let provider = null;
+
+        // EAS Contract addresses on Base networks
+        const EAS_ADDRESSES = {
+            'base-sepolia': {
+                eas: '0x4200000000000000000000000000000000000021',
+                schemaRegistry: '0x4200000000000000000000000000000000000020'
+            },
+            'base': {
+                eas: '0x4200000000000000000000000000000000000021', 
+                schemaRegistry: '0x4200000000000000000000000000000000000020'
+            }
+        };
+
+        const CHAIN_IDS = {
+            'base-sepolia': 84532,
+            'base': 8453
+        };
+
+        // Schema for domain identifier to Ethereum address attestation
+        // Schema: "string domain,string identifier,string proofUrl"  
+        // domain = "github.com", identifier = github username, proofUrl = gist URL
+        // TODO: Create this schema on EAS Schema Registry first
+        const ATTESTATION_SCHEMA_UID = "0xc7144184b5fe903cf31a85811a1e1548df8872b0cbc40d2747054cc136941546" // Base mainnet & Sepolia
+
+        async function connectWallet() {
+            const button = document.getElementById('connectWallet');
+            const status = document.getElementById('walletStatus');
+            
+            try {
+                button.disabled = true;
+                button.textContent = 'Connecting...';
+                
+                if (typeof window.ethereum === 'undefined') {
+                    throw new Error('Please install MetaMask or another Web3 wallet');
+                }
+
+                // Request account access
+                const accounts = await window.ethereum.request({
+                    method: 'eth_requestAccounts'
+                });
+
+                if (accounts.length === 0) {
+                    throw new Error('No accounts found');
+                }
+
+                walletAddress = accounts[0];
+                
+                // Get network info
+                const chainId = await window.ethereum.request({
+                    method: 'eth_chainId'
+                });
+                
+                const networkName = Object.keys(CHAIN_IDS).find(key => 
+                    CHAIN_IDS[key] === parseInt(chainId, 16)
+                ) || 'unknown';
+
+                status.innerHTML = `
+                    <div class="status success">
+                        <strong>✅ Wallet Connected!</strong><br>
+                        Address: ${walletAddress}<br>
+                        Network: ${networkName} (${parseInt(chainId, 16)})
+                    </div>
+                `;
+
+                // Show step 2
+                document.getElementById('step1').querySelector('.step-indicator').classList.add('completed');
+                document.getElementById('step2').classList.remove('hidden');
+                enableUsernameInput();
+
+            } catch (error) {
+                status.innerHTML = `
+                    <div class="status error">
+                        <strong>❌ Connection Failed:</strong> ${error.message}
+                    </div>
+                `;
+                button.disabled = false;
+                button.textContent = 'Connect Wallet';
+            }
+        }
+
+        function enableUsernameInput() {
+            const input = document.getElementById('githubUsername');
+            const button = document.getElementById('signMessage');
+            
+            input.addEventListener('input', () => {
+                const username = input.value.trim();
+                button.disabled = username.length === 0;
+            });
+        }
+
+        async function signMessage() {
+            const button = document.getElementById('signMessage');
+            const status = document.getElementById('signatureStatus');
+            const username = document.getElementById('githubUsername').value.trim();
+            
+            if (!username) {
+                status.innerHTML = '<div class="status error">Please enter a GitHub username</div>';
+                return;
+            }
+
+            try {
+                button.disabled = true;
+                button.textContent = 'Signing...';
+                
+                const timestamp = Math.floor(Date.now() / 1000);
+                const message = `I am linking my GitHub account "${username}" to my Ethereum address ${walletAddress}. Timestamp: ${timestamp}`;
+                
+                signature = await window.ethereum.request({
+                    method: 'personal_sign',
+                    params: [message, walletAddress]
+                });
+
+                verificationData = {
+                    message: message,
+                    signature: signature,
+                    address: walletAddress,
+                    github_username: username,
+                    timestamp: timestamp,
+                    version: "1.0"
+                };
+
+                status.innerHTML = `
+                    <div class="status success">
+                        <strong>✅ Message Signed Successfully!</strong><br>
+                        Ready to create GitHub Gist
+                    </div>
+                `;
+
+                // Show step 3
+                document.getElementById('step2').querySelector('.step-indicator').classList.add('completed');
+                document.getElementById('step3').classList.remove('hidden');
+                showJsonOutput();
+
+            } catch (error) {
+                status.innerHTML = `
+                    <div class="status error">
+                        <strong>❌ Signing Failed:</strong> ${error.message}
+                    </div>
+                `;
+                button.disabled = false;
+                button.textContent = 'Sign Verification Message';
+            }
+        }
+
+        function showJsonOutput() {
+            const jsonOutput = document.getElementById('jsonOutput');
+            const copyButton = document.getElementById('copyJson');
+            const gistInput = document.getElementById('gistUrl');
+            const submitButton = document.getElementById('submitGist');
+            
+            jsonOutput.textContent = JSON.stringify(verificationData, null, 2);
+            jsonOutput.classList.remove('hidden');
+            copyButton.classList.remove('hidden');
+            
+            gistInput.addEventListener('input', () => {
+                const url = gistInput.value.trim();
+                submitButton.disabled = !isValidGistUrl(url);
+            });
+        }
+
+        function copyJson() {
+            const jsonText = JSON.stringify(verificationData, null, 2);
+            navigator.clipboard.writeText(jsonText).then(() => {
+                const button = document.getElementById('copyJson');
+                const originalText = button.textContent;
+                button.textContent = '✅ Copied!';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                }, 2000);
+            });
+        }
+
+        function isValidGistUrl(url) {
+            try {
+                const urlObj = new URL(url);
+                return urlObj.hostname === 'gist.github.com' && urlObj.pathname.includes('/');
+            } catch {
+                return false;
+            }
+        }
+
+        async function submitGist() {
+            const button = document.getElementById('submitGist');
+            const status = document.getElementById('gistStatus');
+            const gistUrl = document.getElementById('gistUrl').value.trim();
+            
+            try {
+                button.disabled = true;
+                button.textContent = 'Creating Attestation...';
+                
+                // Get current network
+                const chainId = await window.ethereum.request({
+                    method: 'eth_chainId'
+                });
+                const networkName = Object.keys(CHAIN_IDS).find(key => 
+                    CHAIN_IDS[key] === parseInt(chainId, 16)
+                );
+                
+                if (!networkName) {
+                    throw new Error('Please switch to Base or Base Sepolia network');
+                }
+
+                // Get EAS contract address for this network
+                const easAddress = EAS_ADDRESSES[networkName]?.eas;
+                if (!easAddress) {
+                    throw new Error('EAS not deployed on this network');
+                }
+
+                // Initialize EAS SDK
+                const provider = new ethers.BrowserProvider(window.ethereum);
+                const signer = await provider.getSigner();
+                const eas = new EAS.EAS(easAddress);
+                eas.connect(signer);
+
+                // Extract verification data
+                const githubUsername = verificationData.github_username;
+
+                // Encode the attestation data with domain, identifier, and proof URL
+                const schemaEncoder = new EAS.SchemaEncoder("string domain,string identifier,string proofUrl");
+                const encodedData = schemaEncoder.encodeData([
+                    { name: "domain", value: "github.com", type: "string" },
+                    { name: "identifier", value: githubUsername, type: "string" },
+                    { name: "proofUrl", value: gistUrl, type: "string" }
+                ]);
+
+                // Create the attestation
+                const tx = await eas.attest({
+                    schema: ATTESTATION_SCHEMA_UID,
+                    data: {
+                        recipient: walletAddress, // Attesting to the wallet owner
+                        expirationTime: 0n, // No expiration
+                        revocable: true,
+                        data: encodedData
+                    }
+                });
+
+                status.innerHTML = `
+                    <div class="status success">
+                        <strong>🚀 Attestation Created!</strong><br>
+                        Transaction: <code>${tx.txHash}</code><br>
+                        <small>Waiting for confirmation...</small>
+                    </div>
+                `;
+
+                // Wait for transaction confirmation
+                const receipt = await tx.wait();
+                
+                status.innerHTML = `
+                    <div class="status success">
+                        <strong>✅ Attestation Confirmed!</strong><br>
+                        Transaction: <code>${receipt.transactionHash}</code><br>
+                        <small>Identity ${githubUsername}@github.com attested to ${walletAddress}</small>
+                    </div>
+                `;
+
+                document.getElementById('step3').querySelector('.step-indicator').classList.add('completed');
+                document.getElementById('step4').classList.remove('hidden');
+                showCompletion(receipt.transactionHash, gistUrl);
+
+            } catch (error) {
+                status.innerHTML = `
+                    <div class="status error">
+                        <strong>❌ Attestation Failed:</strong> ${error.message}
+                    </div>
+                `;
+                button.disabled = false;
+                button.textContent = 'Submit to Blockchain';
+            }
+        }
+
+
+        function showCompletion(txHash, gistUrl) {
+            const status = document.getElementById('completionStatus');
+            
+            status.innerHTML = `
+                <div class="status info">
+                    <strong>📋 Summary:</strong><br>
+                    GitHub: <code>${verificationData.github_username}</code><br>
+                    Address: <code>${verificationData.address}</code><br>
+                    Gist: <a href="${gistUrl}" target="_blank">View Gist</a><br>
+                    Transaction: <code>${txHash}</code>
+                </div>
+            `;
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check if wallet is already connected
+            if (typeof window.ethereum !== 'undefined') {
+                window.ethereum.request({ method: 'eth_accounts' })
+                    .then(accounts => {
+                        if (accounts.length > 0) {
+                            // Auto-connect if previously connected
+                            connectWallet();
+                        }
+                    })
+                    .catch(console.error);
+            }
+        });
+    </script>
+</body>
+</html>

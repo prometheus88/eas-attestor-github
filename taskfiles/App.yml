@@ -1,0 +1,175 @@
+version: '3'
+
+# Application-specific tasks for EAS Attestor for Github
+vars:
+  BUILD_DIR: build
+  DIST_DIR: "{{.BUILD_DIR}}/dist"
+  SITE_DIR: "{{.BUILD_DIR}}/site"  
+  DOCS_DIR: "{{.BUILD_DIR}}/docs"
+
+tasks:
+  # Build tasks (application-specific only)
+  build:
+    desc: Build application-specific components (docs and dApp)
+    deps: [build:docs, build:dist]
+
+  build:docs:
+    desc: Generate contract documentation
+    cmds:
+      - forge doc --build
+      - mkdir -p {{.DOCS_DIR}}
+      - rm -rf {{.DOCS_DIR}}/*
+      - cp -r docs/book/* {{.DOCS_DIR}}/ || echo "No docs generated yet"
+    sources:
+      - src/main/solidity/**/*.sol
+    generates:
+      - "{{.DOCS_DIR}}/**/*"
+
+  build:dist:
+    desc: Build dApp for deployment
+    cmds:
+      - mkdir -p {{.DIST_DIR}}
+      - cp -r src/main/html/* {{.DIST_DIR}}/
+      - mkdir -p {{.DIST_DIR}}/docs
+      - cp -r {{.DOCS_DIR}}/* {{.DIST_DIR}}/docs/ || true
+    deps: [build:docs]
+    sources:
+      - src/main/html/**/*
+    generates:
+      - "{{.DIST_DIR}}/**/*"
+
+  # Application tests (non-Solidity)
+  test:python:
+    desc: Run Python application tests
+    cmds:
+      - python -m pytest src/test/python/ -v
+
+  # Deployment tasks
+  deploy:sepolia:
+    desc: Deploy to Base Sepolia
+    cmds:
+      - echo "Deploying to Base Sepolia..."
+      - python src/main/python/deploy.py --network sepolia
+    preconditions:
+      - sh: '[ -n "$DEPLOY_PRIVATE_KEY" ]'
+        msg: "DEPLOY_PRIVATE_KEY environment variable is required"
+      - sh: '[ -n "$BASE_SEPOLIA_RPC_URL" ]'
+        msg: "BASE_SEPOLIA_RPC_URL environment variable is required"
+
+  deploy:mainnet:
+    desc: Deploy to Base mainnet
+    cmds:
+      - echo "Deploying to Base mainnet..."
+      - python src/main/python/deploy.py --network mainnet
+    preconditions:
+      - sh: '[ -n "$DEPLOY_PRIVATE_KEY" ]'
+        msg: "DEPLOY_PRIVATE_KEY environment variable is required"
+      - sh: '[ -n "$BASE_MAINNET_RPC_URL" ]'
+        msg: "BASE_MAINNET_RPC_URL environment variable is required"
+
+  # Attestation processing
+  attest:
+    desc: Process attestations (cron job)
+    cmds:
+      - python src/main/python/process_attestations.py
+    preconditions:
+      - sh: '[ -n "$ATTEST_PRIVATE_KEY" ]'
+        msg: "ATTEST_PRIVATE_KEY environment variable is required"
+
+  # Development tasks
+  dev:
+    desc: Start complete development environment
+    cmds:
+      - ./scripts/task/app/dev-server.sh
+
+  serve:
+    desc: Serve the built dApp locally
+    deps: [build:dist]
+    cmds:
+      - ./scripts/task/app/serve.sh
+
+  serve:bg:
+    desc: Serve the dApp in background
+    deps: [build:dist] 
+    cmds:
+      - ./scripts/task/app/serve-bg.sh
+
+  dev:stop:
+    desc: Stop development environment
+    cmds:
+      - ./scripts/task/app/stop-dev.sh
+
+  create-schema:
+    desc: Show instructions for creating EAS schema
+    cmds:
+      - ./scripts/task/app/create-schema.sh {{.NETWORK | default "base-sepolia"}}
+
+  # Format tasks (application-specific only)  
+  format:python:
+    desc: Format Python code
+    cmds:
+      - black src/main/python/
+      - isort src/main/python/
+
+  # Clean tasks
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - rm -rf {{.BUILD_DIR}}
+      - forge clean
+      - rm -rf docs/book
+
+  # Health check tasks
+  doctor:
+    desc: Application-specific health checks
+    cmds:
+      - echo "🏥 Running EAS Attestor for Github health checks..."
+      - cmd: forge --version
+        silent: true
+      - echo "✅ Foundry is installed"
+      - cmd: python --version
+        silent: true
+      - echo "✅ Python is available"
+      - cmd: test -f foundry.toml
+      - echo "✅ Foundry configuration found"
+      - cmd: test -d src/main/solidity
+      - echo "✅ Contract source directory exists"
+      - cmd: test -d src/main/html
+      - echo "✅ dApp source directory exists"
+      - cmd: test -f requirements.txt
+      - echo "✅ Python requirements file found"
+      - echo "🎉 All application health checks passed!"
+
+  # Setup tasks
+  setup:
+    desc: Setup application development environment
+    cmds:
+      - echo "🚀 Setting up EAS Attestor for Github..."
+      - forge install
+      - pip install -r requirements.txt
+      - mkdir -p {{.BUILD_DIR}} {{.DIST_DIR}} {{.SITE_DIR}} {{.DOCS_DIR}} deployments state
+      - task build
+      - echo "✅ Application setup complete!"
+
+  # Environment-specific configurations
+  check-env:sepolia:
+    desc: Check Base Sepolia environment configuration
+    cmds:
+      - echo "Checking Base Sepolia environment..."
+      - cmd: '[ -n "$BASE_SEPOLIA_RPC_URL" ]'
+        silent: true
+      - echo "✅ Base Sepolia RPC URL configured"
+      - cmd: '[ -n "$BASESCAN_SEPOLIA_API_KEY" ]'
+        silent: true
+      - echo "✅ Basescan Sepolia API key configured"
+
+  check-env:mainnet:
+    desc: Check Base mainnet environment configuration
+    cmds:
+      - echo "Checking Base mainnet environment..."
+      - cmd: '[ -n "$BASE_MAINNET_RPC_URL" ]'
+        silent: true
+      - echo "✅ Base mainnet RPC URL configured"
+      - cmd: '[ -n "$BASESCAN_API_KEY" ]'
+        silent: true
+      - echo "✅ Basescan API key configured"
