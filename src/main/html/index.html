@@ -143,6 +143,28 @@
             border: 1px solid #bee5eb;
         }
 
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .network-switch-btn {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+
+        .network-switch-btn:hover {
+            background-color: #0056b3;
+        }
+
         .code-block {
             background: #f8f9fa;
             border: 1px solid #e9ecef;
@@ -315,15 +337,39 @@
                     method: 'eth_chainId'
                 });
                 
+                const currentChainId = parseInt(chainId, 16);
                 const networkName = Object.keys(CHAIN_IDS).find(key => 
-                    CHAIN_IDS[key] === parseInt(chainId, 16)
+                    CHAIN_IDS[key] === currentChainId
                 ) || 'unknown';
+
+                // Check if we're on a supported network
+                const supportedChainIds = Object.values(CHAIN_IDS);
+                const isSupported = supportedChainIds.includes(currentChainId);
+
+                if (!isSupported) {
+                    status.innerHTML = `
+                        <div class="status warning">
+                            <strong>⚠️ Unsupported Network</strong><br>
+                            Current: ${networkName} (${currentChainId})<br>
+                            Please switch to Base or Base Sepolia
+                            <div style="margin-top: 10px;">
+                                <button onclick="switchToBaseSepolia()" class="network-switch-btn">
+                                    Switch to Base Sepolia
+                                </button>
+                                <button onclick="switchToBase()" class="network-switch-btn">
+                                    Switch to Base Mainnet
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
 
                 status.innerHTML = `
                     <div class="status success">
                         <strong>✅ Wallet Connected!</strong><br>
                         Address: ${walletAddress}<br>
-                        Network: ${networkName} (${parseInt(chainId, 16)})
+                        Network: ${networkName} (${currentChainId})
                     </div>
                 `;
 
@@ -498,6 +544,86 @@
             return 'sepolia'; // default
         }
 
+        async function switchToBaseSepolia() {
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: '0x14a34' }], // 84532 in hex
+                });
+                // Reconnect after network switch
+                setTimeout(() => connectWallet(), 1000);
+            } catch (error) {
+                if (error.code === 4902) {
+                    // Network not added to wallet, add it
+                    await addBaseSepolia();
+                } else {
+                    console.error('Failed to switch network:', error);
+                }
+            }
+        }
+
+        async function switchToBase() {
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: '0x2105' }], // 8453 in hex
+                });
+                // Reconnect after network switch
+                setTimeout(() => connectWallet(), 1000);
+            } catch (error) {
+                if (error.code === 4902) {
+                    // Network not added to wallet, add it
+                    await addBase();
+                } else {
+                    console.error('Failed to switch network:', error);
+                }
+            }
+        }
+
+        async function addBaseSepolia() {
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_addEthereumChain',
+                    params: [{
+                        chainId: '0x14a34',
+                        chainName: 'Base Sepolia',
+                        nativeCurrency: {
+                            name: 'Ether',
+                            symbol: 'ETH',
+                            decimals: 18
+                        },
+                        rpcUrls: ['https://sepolia.base.org'],
+                        blockExplorerUrls: ['https://sepolia.basescan.org']
+                    }]
+                });
+                setTimeout(() => connectWallet(), 1000);
+            } catch (error) {
+                console.error('Failed to add Base Sepolia:', error);
+            }
+        }
+
+        async function addBase() {
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_addEthereumChain',
+                    params: [{
+                        chainId: '0x2105',
+                        chainName: 'Base',
+                        nativeCurrency: {
+                            name: 'Ether',
+                            symbol: 'ETH',
+                            decimals: 18
+                        },
+                        rpcUrls: ['https://mainnet.base.org'],
+                        blockExplorerUrls: ['https://basescan.org']
+                    }]
+                });
+                setTimeout(() => connectWallet(), 1000);
+            } catch (error) {
+                console.error('Failed to add Base:', error);
+            }
+        }
+
         async function pollForValidationResults(callbackId) {
             const maxAttempts = 24; // 2 minutes with 5s intervals
             const pollInterval = 5000; // 5 seconds
@@ -561,13 +687,20 @@
             try {
                 button.disabled = true;
                 button.textContent = 'Creating Attestation...';
-                
-                // Get current network
+
+                // Check if we're on a supported network
                 const chainId = await window.ethereum.request({
                     method: 'eth_chainId'
                 });
+                const currentChainId = parseInt(chainId, 16);
+                const supportedChainIds = Object.values(CHAIN_IDS);
+                
+                if (!supportedChainIds.includes(currentChainId)) {
+                    throw new Error('Please switch to Base or Base Sepolia network');
+                }
+                
                 const networkName = Object.keys(CHAIN_IDS).find(key => 
-                    CHAIN_IDS[key] === parseInt(chainId, 16)
+                    CHAIN_IDS[key] === currentChainId
                 );
                 
                 if (!networkName) {
