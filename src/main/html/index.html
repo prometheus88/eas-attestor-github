@@ -724,7 +724,7 @@
                 // Initialize EAS SDK
                 const provider = new ethers.BrowserProvider(window.ethereum);
                 const signer = await provider.getSigner();
-                const eas = new window.EAS(easAddress);
+                const eas = new window.EAS.EAS(easAddress);
                 eas.connect(signer);
 
                 // Extract verification data
@@ -758,7 +758,7 @@
                 button.textContent = 'Submitting to Blockchain...';
 
                 // Encode the attestation data with validation fields
-                const schemaEncoder = new window.SchemaEncoder("string domain,string identifier,string proofUrl,bytes validationSig,uint256 validatedAt,address validator");
+                const schemaEncoder = new window.EAS.SchemaEncoder("string domain,string identifier,string proofUrl,bytes validationSig,uint256 validatedAt,address validator");
                 const encodedData = schemaEncoder.encodeData([
                     { name: "domain", value: "github.com", type: "string" },
                     { name: "identifier", value: githubUsername, type: "string" },
@@ -866,7 +866,7 @@
                 // Initialize EAS SDK
                 const provider = new ethers.BrowserProvider(window.ethereum);
                 const signer = await provider.getSigner();
-                const eas = new window.EAS(easAddress);
+                const eas = new window.EAS.EAS(easAddress);
                 eas.connect(signer);
 
                 // Revoke the attestation
