@@ -1,69 +1,59 @@
-name: Process Attestations
+name: Validate Attestation
 
 on:
-  schedule:
-    # Run every 15 minutes
-    - cron: '*/15 * * * *'
-  workflow_dispatch:
-    inputs:
-      network:
-        description: 'Network to process'
-        required: true
-        default: 'sepolia'
-        type: choice
-        options:
-        - sepolia
-        - mainnet
+  repository_dispatch:
+    types: [validate-attestation]
 
 jobs:
-  attest:
+  validate:
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.network || 'sepolia' }}
     
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          python-version: '3.11'
+          node-version: '20'
+
+      - name: Validate GitHub attestation
+        id: validate
+        run: |
+          # Extract data from repository_dispatch payload
+          DOMAIN="${{ github.event.client_payload.domain }}"
+          IDENTIFIER="${{ github.event.client_payload.identifier }}"
+          PROOF_URL="${{ github.event.client_payload.proofUrl }}"
+          ETHEREUM_ADDRESS="${{ github.event.client_payload.ethereumAddress }}"
+          CALLBACK_ID="${{ github.event.client_payload.callbackId }}"
           
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-
-      - name: Setup environment
-        run: |
-          NETWORK=${{ github.event.inputs.network || 'sepolia' }}
-          if [ "$NETWORK" = "mainnet" ]; then
-            echo "RPC_URL=${{ secrets.BASE_MAINNET_RPC_URL }}" >> $GITHUB_ENV
-            echo "BASESCAN_API_KEY=${{ secrets.BASESCAN_API_KEY }}" >> $GITHUB_ENV
-            echo "EXPLORER_URL=https://api.basescan.org/api" >> $GITHUB_ENV
-          else
-            echo "RPC_URL=${{ secrets.BASE_SEPOLIA_RPC_URL }}" >> $GITHUB_ENV
-            echo "BASESCAN_API_KEY=${{ secrets.BASESCAN_SEPOLIA_API_KEY }}" >> $GITHUB_ENV
-            echo "EXPLORER_URL=https://api-sepolia.basescan.org/api" >> $GITHUB_ENV
-          fi
-          echo "NETWORK=$NETWORK" >> $GITHUB_ENV
-
-      - name: Process attestations
-        run: python scripts/task/app/process_attestations.py
+          echo "Validating attestation for $IDENTIFIER@$DOMAIN"
+          echo "Proof URL: $PROOF_URL"
+          echo "Ethereum Address: $ETHEREUM_ADDRESS"
+          
+          # TODO: Add actual validation logic:
+          # 1. Fetch gist content from PROOF_URL
+          # 2. Verify signature matches ETHEREUM_ADDRESS  
+          # 3. Check that gist is owned by IDENTIFIER on DOMAIN
+          # 4. Generate validation signature using VALIDATOR_PRIVATE_KEY
+          
+          # For now, create placeholder response
+          VALIDATED_AT=$(date +%s)
+          VALIDATOR_ADDRESS="0x0000000000000000000000000000000000000000"
+          VALIDATION_SIG="0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+          
+          echo "validation_sig=$VALIDATION_SIG" >> $GITHUB_OUTPUT
+          echo "validated_at=$VALIDATED_AT" >> $GITHUB_OUTPUT
+          echo "validator=$VALIDATOR_ADDRESS" >> $GITHUB_OUTPUT
+          echo "callback_id=$CALLBACK_ID" >> $GITHUB_OUTPUT
         env:
-          PRIVATE_KEY: ${{ secrets.ATTEST_PRIVATE_KEY }}
+          VALIDATOR_PRIVATE_KEY: ${{ secrets.VALIDATOR_PRIVATE_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RPC_URL: ${{ env.RPC_URL }}
-          BASESCAN_API_KEY: ${{ env.BASESCAN_API_KEY }}
-          EXPLORER_URL: ${{ env.EXPLORER_URL }}
-          NETWORK: ${{ env.NETWORK }}
 
-      - name: Commit state
+      - name: Store validation result
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          if git diff --quiet; then
-            echo "No changes to commit"
-          else
-            git add state/
-            git commit -m "Update attestation state [skip ci]"
-            git push
-          fi
+          # Store result where dApp can poll for it
+          # Could use GitHub API to create issue comment, gist, or other mechanism
+          echo "Validation completed for callback ID: ${{ steps.validate.outputs.callback_id }}"
+          echo "Validation signature: ${{ steps.validate.outputs.validation_sig }}"
+          echo "Validated at: ${{ steps.validate.outputs.validated_at }}"
+          echo "Validator: ${{ steps.validate.outputs.validator }}"
