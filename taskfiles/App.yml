@@ -38,18 +38,18 @@ tasks:
     generates:
       - "{{.DIST_DIR}}/**/*"
 
-  # Application tests (non-Solidity)
-  test:python:
-    desc: Run Python application tests
+  # Application tests (TypeScript)
+  test:typescript:
+    desc: Run TypeScript application tests
     cmds:
-      - python -m pytest src/test/python/ -v
+      - npm test
 
-  # Deployment tasks
+  # Deployment tasks (using Foundry)
   deploy:sepolia:
     desc: Deploy to Base Sepolia
     cmds:
       - echo "Deploying to Base Sepolia..."
-      - python src/main/python/deploy.py --network sepolia
+      - forge script script/Deploy.s.sol --rpc-url $BASE_SEPOLIA_RPC_URL --broadcast --verify
     preconditions:
       - sh: '[ -n "$DEPLOY_PRIVATE_KEY" ]'
         msg: "DEPLOY_PRIVATE_KEY environment variable is required"
@@ -60,21 +60,12 @@ tasks:
     desc: Deploy to Base mainnet
     cmds:
       - echo "Deploying to Base mainnet..."
-      - python src/main/python/deploy.py --network mainnet
+      - forge script script/Deploy.s.sol --rpc-url $BASE_MAINNET_RPC_URL --broadcast --verify
     preconditions:
       - sh: '[ -n "$DEPLOY_PRIVATE_KEY" ]'
         msg: "DEPLOY_PRIVATE_KEY environment variable is required"
       - sh: '[ -n "$BASE_MAINNET_RPC_URL" ]'
         msg: "BASE_MAINNET_RPC_URL environment variable is required"
-
-  # Attestation processing
-  attest:
-    desc: Process attestations (cron job)
-    cmds:
-      - python src/main/python/process_attestations.py
-    preconditions:
-      - sh: '[ -n "$ATTEST_PRIVATE_KEY" ]'
-        msg: "ATTEST_PRIVATE_KEY environment variable is required"
 
   # Development tasks
   dev:
@@ -105,11 +96,10 @@ tasks:
       - ./scripts/task/app/create-schema.sh {{.NETWORK | default "base-sepolia"}}
 
   # Format tasks (application-specific only)  
-  format:python:
-    desc: Format Python code
+  format:typescript:
+    desc: Format TypeScript code
     cmds:
-      - black src/main/python/
-      - isort src/main/python/
+      - npm run format
 
   # Clean tasks
   clean:
@@ -127,17 +117,19 @@ tasks:
       - cmd: forge --version
         silent: true
       - echo "✅ Foundry is installed"
-      - cmd: python --version
+      - cmd: node --version
         silent: true
-      - echo "✅ Python is available"
+      - echo "✅ Node.js is available"
       - cmd: test -f foundry.toml
       - echo "✅ Foundry configuration found"
       - cmd: test -d src/main/solidity
       - echo "✅ Contract source directory exists"
       - cmd: test -d src/main/html
       - echo "✅ dApp source directory exists"
-      - cmd: test -f requirements.txt
-      - echo "✅ Python requirements file found"
+      - cmd: test -f package.json
+      - echo "✅ Node.js package file found"
+      - cmd: test -f tsconfig.json
+      - echo "✅ TypeScript configuration found"
       - echo "🎉 All application health checks passed!"
 
   # Setup tasks
@@ -146,7 +138,7 @@ tasks:
     cmds:
       - echo "🚀 Setting up EAS Attestor for Github..."
       - forge install
-      - pip install -r requirements.txt
+      - npm install
       - mkdir -p {{.BUILD_DIR}} {{.DIST_DIR}} {{.SITE_DIR}} {{.DOCS_DIR}} deployments state
       - task build
       - echo "✅ Application setup complete!"
