@@ -1,1 +1,0 @@
-"""Tests for attestation processing scripts."""

@@ -10,10 +10,10 @@ includes:
     dir: .
   
   # Language and technology-specific extensions
-  python:
-    taskfile: ./taskfiles/Python.yml
+  typescript:
+    taskfile: ./taskfiles/Typescript.yml
     optional: true
-    aliases: [py]
+    aliases: [ts]
   
   solidity:
     taskfile: ./taskfiles/Solidity.yml

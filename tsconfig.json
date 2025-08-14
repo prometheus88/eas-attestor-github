@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "module": "es2020",
+    "moduleResolution": "node",
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "types": ["node", "jest"],
+    "lib": ["es2020"],
+    
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
+    
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "hackathon",
+    "**/*.test.ts"
+  ],
+  "ts-node": {
+    "esm": true
+  }
+}

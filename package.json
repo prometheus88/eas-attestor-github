@@ -1,0 +1,47 @@
+{
+  "name": "eas-attestor-github",
+  "version": "0.1.0",
+  "description": "EAS Attestor for Github - Link GitHub usernames to Ethereum addresses using EAS",
+  "main": "src/main/html/index.html",
+  "type": "module",
+  "scripts": {
+    "dev": "task serve",
+    "build": "tsc",
+    "test": "jest --config jest.config.cjs",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write 'src/**/*.ts'",
+    "test:watch": "jest --config jest.config.cjs --watch",
+    "test:coverage": "jest --config jest.config.cjs --coverage",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "format:check": "prettier --check 'src/**/*.ts'"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/allenday/eas-attestor-github.git"
+  },
+  "keywords": [
+    "ethereum",
+    "attestation",
+    "github",
+    "eas",
+    "blockchain",
+    "base"
+  ],
+  "author": "Allen Day <allenday@users.noreply.github.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/allenday/eas-attestor-github/issues"
+  },
+  "homepage": "https://github.com/allenday/eas-attestor-github#readme",
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.2.1",
+    "@typescript-eslint/eslint-plugin": "^8.39.1",
+    "@typescript-eslint/parser": "^8.39.1",
+    "eslint": "^9.33.0",
+    "jest": "^30.0.5",
+    "prettier": "^3.6.2",
+    "ts-jest": "^29.4.1",
+    "typescript": "^5.9.2"
+  }
+}
