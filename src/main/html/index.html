@@ -440,8 +440,14 @@
                 `;
 
                 // Show step 2
-                document.getElementById('step1').querySelector('.step-indicator').classList.add('completed');
-                document.getElementById('step2').classList.remove('hidden');
+                document.getElementById('card1').classList.add('completed');
+                document.getElementById('card1').classList.remove('active');
+                document.getElementById('card1').querySelector('.step-indicator').classList.add('completed');
+                document.getElementById('card1').querySelector('.step-indicator').classList.remove('active');
+                
+                document.getElementById('card2').classList.add('active');
+                document.getElementById('card2').classList.remove('disabled');
+                document.getElementById('card2').querySelector('.step-indicator').classList.add('active');
                 enableUsernameInput();
                 
                 // Reset button
@@ -508,8 +514,14 @@
                 `;
 
                 // Show step 3
-                document.getElementById('step2').querySelector('.step-indicator').classList.add('completed');
-                document.getElementById('step3').classList.remove('hidden');
+                document.getElementById('card2').classList.add('completed');
+                document.getElementById('card2').classList.remove('active');
+                document.getElementById('card2').querySelector('.step-indicator').classList.add('completed');
+                document.getElementById('card2').querySelector('.step-indicator').classList.remove('active');
+                
+                document.getElementById('card3').classList.add('active');
+                document.getElementById('card3').classList.remove('disabled');
+                document.getElementById('card3').querySelector('.step-indicator').classList.add('active');
                 showJsonOutput();
                 
                 // Reset button
@@ -531,7 +543,7 @@
             const jsonOutput = document.getElementById('jsonOutput');
             const copyButton = document.getElementById('copyJson');
             const gistInput = document.getElementById('gistUrl');
-            const submitButton = document.getElementById('submitGist');
+            const validateButton = document.getElementById('validateGist');
             
             jsonOutput.textContent = JSON.stringify(verificationData, null, 2);
             jsonOutput.classList.remove('hidden');
@@ -539,7 +551,7 @@
             
             gistInput.addEventListener('input', () => {
                 const url = gistInput.value.trim();
-                submitButton.disabled = !isValidGistUrl(url);
+                validateButton.disabled = !isValidGistUrl(url);
             });
         }
 
@@ -731,7 +743,7 @@
                     }
 
                     // Update status to show polling progress
-                    const status = document.getElementById('gistStatus');
+                    const status = document.getElementById('validationStatus');
                     status.innerHTML = `
                         <div class="status info">
                             <strong>🔄 Validating...</strong><br>
@@ -753,14 +765,14 @@
             };
         }
 
-        async function submitGist() {
-            const button = document.getElementById('submitGist');
-            const status = document.getElementById('gistStatus');
+        async function validateGist() {
+            const button = document.getElementById('validateGist');
+            const status = document.getElementById('validationStatus');
             const gistUrl = document.getElementById('gistUrl').value.trim();
             
             try {
                 button.disabled = true;
-                button.textContent = 'Validating...';
+                button.textContent = 'Validating (30-120s)...';
 
                 // Check if we're on a supported network
                 const chainId = await window.ethereum.request({
@@ -787,12 +799,6 @@
                     throw new Error('EAS not deployed on this network');
                 }
 
-                // Initialize EAS SDK
-                const provider = new ethers.BrowserProvider(window.ethereum);
-                const signer = await provider.getSigner();
-                const eas = new window.EAS(easAddress);
-                eas.connect(signer);
-
                 // Extract verification data
                 const githubUsername = verificationData.github_username;
 
@@ -810,18 +816,95 @@
                     throw new Error(`Validation failed: ${validationResult.error}`);
                 }
 
-                const validationSig = validationResult.validationSig;
-                const validatedAt = validationResult.validatedAt;
-                const validator = validationResult.validator;
+                // Store validation results globally for submitAttestation function
+                window.validationResult = validationResult;
+                window.validatedGistUrl = gistUrl;
 
-                // Update status to show blockchain submission
                 status.innerHTML = `
-                    <div class="status info">
+                    <div class="status success">
                         <strong>✅ Validation Complete!</strong><br>
-                        Submitting attestation to blockchain...
+                        Ready to submit attestation to blockchain.
                     </div>
                 `;
-                button.textContent = 'Submitting to Blockchain...';
+
+                // Show step 4
+                document.getElementById('card3').classList.add('completed');
+                document.getElementById('card3').classList.remove('active');
+                document.getElementById('card3').querySelector('.step-indicator').classList.add('completed');
+                document.getElementById('card3').querySelector('.step-indicator').classList.remove('active');
+                
+                document.getElementById('card4').classList.add('active');
+                document.getElementById('card4').classList.remove('disabled');
+                document.getElementById('card4').querySelector('.step-indicator').classList.add('active');
+                document.getElementById('submitAttestation').disabled = false;
+                
+                button.textContent = '✅ Validated';
+
+            } catch (error) {
+                status.innerHTML = `
+                    <div class="status error">
+                        <strong>❌ Attestation Failed:</strong> ${error.message}
+                    </div>
+                `;
+                button.disabled = false;
+                button.textContent = 'Validate (30-120s)';
+            }
+        }
+
+        async function submitAttestation() {
+            const button = document.getElementById('submitAttestation');
+            const status = document.getElementById('submissionStatus');
+            
+            if (!window.validationResult || !window.validatedGistUrl) {
+                status.innerHTML = `
+                    <div class="status error">
+                        <strong>❌ Error:</strong> No validation data found. Please validate first.
+                    </div>
+                `;
+                return;
+            }
+            
+            try {
+                button.disabled = true;
+                button.textContent = 'Submitting...';
+                
+                // Check network again
+                const chainId = await window.ethereum.request({
+                    method: 'eth_chainId'
+                });
+                const currentChainId = parseInt(chainId, 16);
+                const networkName = Object.keys(CHAIN_IDS).find(key => 
+                    CHAIN_IDS[key] === currentChainId
+                );
+                
+                if (!networkName) {
+                    throw new Error('Please switch to Base or Base Sepolia network');
+                }
+
+                // Get EAS contract address for this network
+                const easAddress = EAS_ADDRESSES[networkName]?.eas;
+                if (!easAddress) {
+                    throw new Error('EAS not deployed on this network');
+                }
+
+                // Initialize EAS SDK
+                const provider = new ethers.BrowserProvider(window.ethereum);
+                const signer = await provider.getSigner();
+                const eas = new window.EAS(easAddress);
+                eas.connect(signer);
+
+                const validationSig = window.validationResult.validationSig;
+                const validatedAt = window.validationResult.validatedAt;
+                const validator = window.validationResult.validator;
+                const githubUsername = verificationData.github_username;
+                const gistUrl = window.validatedGistUrl;
+
+                status.innerHTML = `
+                    <div class="status info">
+                        <strong>🚀 Submitting to blockchain...</strong><br>
+                        Creating attestation transaction...
+                    </div>
+                `;
 
                 // Encode the attestation data with validation fields
                 const schemaEncoder = new window.SchemaEncoder("string domain,string identifier,string proofUrl,bytes validationSig,uint256 validatedAt,address validator");
@@ -838,8 +921,8 @@
                 const tx = await eas.attest({
                     schema: ATTESTATION_SCHEMA_UID,
                     data: {
-                        recipient: walletAddress, // Attesting to the wallet owner
-                        expirationTime: 0n, // No expiration
+                        recipient: walletAddress,
+                        expirationTime: 0n,
                         revocable: true,
                         data: encodedData
                     }
@@ -864,21 +947,24 @@
                     </div>
                 `;
 
-                document.getElementById('step3').querySelector('.step-indicator').classList.add('completed');
-                document.getElementById('step4').classList.remove('hidden');
+                // Mark card 4 as completed
+                document.getElementById('card4').classList.add('completed');
+                document.getElementById('card4').querySelector('.step-indicator').classList.add('completed');
+                document.getElementById('card4').querySelector('.step-indicator').classList.remove('active');
+                
                 showCompletion(receipt.transactionHash, gistUrl);
+                button.textContent = '✅ Submitted';
 
             } catch (error) {
                 status.innerHTML = `
                     <div class="status error">
-                        <strong>❌ Attestation Failed:</strong> ${error.message}
+                        <strong>❌ Submission Failed:</strong> ${error.message}
                     </div>
                 `;
                 button.disabled = false;
-                button.textContent = 'Validate & Submit (30-120s)';
+                button.textContent = 'Submit Attestation';
             }
         }
-
 
         function showCompletion(txHash, gistUrl) {
             const status = document.getElementById('completionStatus');
