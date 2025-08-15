@@ -37,9 +37,9 @@ jobs:
         id: doctor
 
       - name: Run build
-        run: task build
+        run: task app:build
         id: build
 
       - name: Run tests
-        run: task test
+        run: task app:test:typescript
         id: test
