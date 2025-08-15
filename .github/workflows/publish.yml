@@ -41,12 +41,15 @@ jobs:
           npm install
 
       - name: Build site for production
+        env:
+          VALIDATOR_URL: ${{ secrets.VALIDATOR_URL || 'https://dev.thewarp.ai/validator' }}
         run: |
-          # Generate production config with environment variables
-          echo "window.ENV_CONFIG = { validatorUrl: '${{ secrets.VALIDATOR_URL || 'https://validator.eas-attestor.com' }}' };" > src/main/html/config.js
+          echo "🔗 Building with validator URL: $VALIDATOR_URL"
+          echo "🔍 Using fallback URL: https://dev.thewarp.ai/validator"
+          echo "💡 To use a custom URL, set VALIDATOR_URL secret in repository settings"
           
-          # Build the static site first
-          task app:build:dist:prod
+          # Use the sophisticated build system that properly processes templates
+          task app:build:dist:prod:custom
           
           # Process Jekyll variables in the built HTML files
           echo "Processing Jekyll variables..."
@@ -58,6 +61,18 @@ jobs:
           find . -name "*.html" -exec sed -i 's|{{site.github.repository_name}}|${{ github.event.repository.name }}|g' {} \;
           
           echo "Jekyll variables processed successfully"
+          
+          # Verify the configuration was generated correctly
+          echo "🔍 Verifying production configuration..."
+          if grep -q "{{VALIDATOR_URL}}" config.js; then
+            echo "❌ ERROR: Template variables not replaced in config.js"
+            cat config.js
+            exit 1
+          else
+            echo "✅ Configuration generated successfully"
+            echo "📋 Final config.js contents:"
+            cat config.js
+          fi
           
       - name: Setup Pages
         uses: actions/configure-pages@v5
