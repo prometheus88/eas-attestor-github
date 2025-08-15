@@ -42,6 +42,7 @@ jobs:
         
         # Build BWS
         cargo build --release
+        ls -la target/release/
         sudo cp target/release/bws /usr/local/bin/
         cd ../../../ && rm -rf sdk-sm-bws-v1.0.0 bws-source.tar.gz
 
