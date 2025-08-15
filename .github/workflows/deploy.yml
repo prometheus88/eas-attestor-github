@@ -31,25 +31,15 @@ jobs:
 
     - name: Install BWS CLI
       run: |
-        # Install BWS CLI for secret resolution
-        wget -O bws-source.tar.gz https://github.com/bitwarden/sdk-sm/archive/refs/tags/bws-v1.0.0.tar.gz
-        tar -xzf bws-source.tar.gz
-        cd sdk-sm-bws-v1.0.0/crates/bws
+        # Install BWS CLI using pre-built binary for Linux x86_64
+        wget -O bws.zip "https://github.com/bitwarden/sdk-sm/releases/download/bws-v1.0.0/bws-x86_64-unknown-linux-gnu.zip"
+        unzip bws.zip
+        sudo chmod +x bws
+        sudo mv bws /usr/local/bin/
+        rm bws.zip
         
-        # Install Rust
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-        source ~/.cargo/env
-        
-        # Build BWS
-        pwd
-        ls -la
-        cargo build --release
-        echo "Build completed, checking structure:"
-        find . -name "bws" -type f 2>/dev/null || echo "No bws binary found"
-        find . -name "target" -type d 2>/dev/null || echo "No target directory found"
-        ls -la target/ 2>/dev/null || echo "No target directory"
-        ls -la target/release/ 2>/dev/null || echo "No target/release directory"
-        cd ../../../ && rm -rf sdk-sm-bws-v1.0.0 bws-source.tar.gz
+        # Verify installation
+        bws --version
 
     - name: Set up environment variables and resolve GCP credentials
       run: |
