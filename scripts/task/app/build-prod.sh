@@ -25,9 +25,12 @@ EOF
 
 echo "✅ Production config generated"
 
-# Build the production dApp
+# Build the production dApp (without overwriting our config)
 echo "🔨 Building production dApp..."
-task app:build:dist:prod
+mkdir -p build/html/dist
+cp -r src/main/html/* build/html/dist/
+mkdir -p build/html/dist/docs
+cp -r build/html/docs/* build/html/dist/docs/ || true
 
 echo "🎉 Production build complete!"
 echo "📁 Output directory: build/html/dist"
