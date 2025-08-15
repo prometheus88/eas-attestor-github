@@ -7,7 +7,7 @@ vars:
   HTML_DOCS_DIR: "{{.BUILD_DIR}}/html/docs"
   VALIDATOR_SRC_DIR: "src/main/typescript/validator"
   VALIDATOR_BUILD_DIR: "{{.BUILD_DIR}}/typescript/validator"
-  VALIDATOR_DEPLOY_DIR: "deploy/validator"
+  VALIDATOR_DEPLOY_DIR: "deploy/validator/local"
 
 tasks:
   # Build tasks (application-specific only)
@@ -191,24 +191,24 @@ tasks:
     deps: [build]
     cmds:
       - echo "Starting local docker-compose environment..."
-      - cd deploy/local && docker compose up -d
+      - cd deploy/local/dev && docker compose up -d
       - echo "Services running at localhost ports 6000 (dApp) and 6001 (validator)"
 
   docker:down:
     desc: Stop local docker-compose environment
     cmds:
       - echo "Stopping local docker-compose environment..."
-      - cd deploy/local && docker compose down
+      - cd deploy/local/dev && docker compose down
 
   docker:logs:
     desc: Show docker-compose logs
     cmds:
-      - cd deploy/local && docker compose logs -f
+      - cd deploy/local/dev && docker compose logs -f
 
   docker:status:
     desc: Show docker-compose status
     cmds:
-      - cd deploy/local && docker compose ps
+      - cd deploy/local/dev && docker compose ps
 
   create-schema:
     desc: Show instructions for creating EAS schema
@@ -242,15 +242,25 @@ tasks:
       - echo "✅ Node.js is available"
       - cmd: test -f foundry.toml
       - echo "✅ Foundry configuration found"
-      - cmd: test -d src/main/solidity
-      - echo "✅ Contract source directory exists"
       - cmd: test -d src/main/html
       - echo "✅ dApp source directory exists"
+      - cmd: test -d src/main/typescript/validator
+      - echo "✅ Validator service directory exists"
       - cmd: test -f package.json
       - echo "✅ Node.js package file found"
       - cmd: test -f tsconfig.json
       - echo "✅ TypeScript configuration found"
+      - echo ""
+      - echo "🔐 Checking secret management configuration..."
+      - task: :secrets:doctor
+      - task: app:doctor:cloud-secrets
       - echo "🎉 All application health checks passed!"
+
+  doctor:cloud-secrets:
+    desc: Check cloud deployment secrets in BWS
+    cmds:
+      - echo "☁️  Checking cloud deployment secrets..."
+      - python3 ./scripts/task/app/doctor-cloud-secrets.py
 
   # Setup tasks
   setup:
