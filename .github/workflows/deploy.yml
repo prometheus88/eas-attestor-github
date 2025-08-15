@@ -1,0 +1,214 @@
+name: Deploy to GCP Cloud Run
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - prod
+
+env:
+  REGION: us-central1
+  SERVICE_NAME: eas-validator
+  # BWS credentials - only GitHub secrets we need
+  BWS_ACCESS_TOKEN: ${{ secrets.BWS_ACCESS_TOKEN }}
+  BWS_PROJECT_ID: ${{ secrets.BWS_PROJECT_ID }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install BWS CLI
+      run: |
+        # Install BWS CLI for secret resolution
+        wget -O bws-source.tar.gz https://github.com/bitwarden/sdk-sm/archive/refs/tags/bws-v1.0.0.tar.gz
+        tar -xzf bws-source.tar.gz
+        cd sdk-sm-bws-v1.0.0/crates/bws
+        
+        # Install Rust
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+        source ~/.cargo/env
+        
+        # Build BWS
+        cargo build --release
+        sudo cp target/release/bws /usr/local/bin/
+        cd ../../../ && rm -rf sdk-sm-bws-v1.0.0 bws-source.tar.gz
+
+    - name: Set up environment variables and resolve GCP credentials
+      run: |
+        # Determine environment
+        if [ "${{ github.event.inputs.environment }}" = "prod" ] || [ "${{ github.ref }}" = "refs/heads/main" ]; then
+          echo "ENVIRONMENT=prod" >> $GITHUB_ENV
+          echo "SERVICE_NAME=eas-validator-prod" >> $GITHUB_ENV
+          ENV_NAME="PROD"
+        else
+          echo "ENVIRONMENT=staging" >> $GITHUB_ENV
+          echo "SERVICE_NAME=eas-validator-staging" >> $GITHUB_ENV
+          ENV_NAME="STAGING"
+        fi
+        
+        # Set up 5D secret resolution environment
+        export NETWORK=CLOUD
+        export ENVIRONMENT=$ENV_NAME
+        export COMPONENT=VALIDATOR
+        export CONCERN=DEPLOY
+        
+        # Resolve GCP credentials from BWS using 5D pattern
+        PROJECT_ID=$(bws secret get "DEPLOY_CLOUD_${ENV_NAME}_VALIDATOR_GCP_PROJECT_ID" --output env | grep -o 'DEPLOY_CLOUD_.*=.*' | cut -d'=' -f2 | tr -d '"')
+        echo "PROJECT_ID=${PROJECT_ID}" >> $GITHUB_ENV
+        echo "IMAGE_NAME=gcr.io/${PROJECT_ID}/${{ env.SERVICE_NAME }}" >> $GITHUB_ENV
+        
+        # Get GCP service account key and write to file
+        bws secret get "DEPLOY_CLOUD_${ENV_NAME}_VALIDATOR_GCP_SERVICE_ACCOUNT_KEY" --output env | grep -o 'DEPLOY_CLOUD_.*=.*' | cut -d'=' -f2- | tr -d '"' > /tmp/gcp-key.json
+        
+        # Load service account key into environment variable
+        echo "GCP_SERVICE_ACCOUNT_KEY=$(cat /tmp/gcp-key.json)" >> $GITHUB_ENV
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ env.GCP_SERVICE_ACCOUNT_KEY }}
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Configure Docker to use gcloud as credential helper
+      run: gcloud auth configure-docker
+
+    - name: Enable required APIs
+      run: |
+        gcloud services enable cloudbuild.googleapis.com \
+                              run.googleapis.com \
+                              secretmanager.googleapis.com \
+                              --project=${PROJECT_ID}
+
+    - name: Create service account if not exists
+      run: |
+        SA_EMAIL="eas-validator-sa@${PROJECT_ID}.iam.gserviceaccount.com"
+        
+        if ! gcloud iam service-accounts describe "${SA_EMAIL}" --project="${PROJECT_ID}" &> /dev/null; then
+          gcloud iam service-accounts create eas-validator-sa \
+            --display-name="EAS Validator Service Account" \
+            --description="Service account for EAS validator Cloud Run service" \
+            --project="${PROJECT_ID}"
+          
+          # Grant necessary permissions
+          gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+            --member="serviceAccount:${SA_EMAIL}" \
+            --role="roles/secretmanager.secretAccessor"
+        fi
+
+    - name: Create BWS secrets in Secret Manager
+      run: |
+        # Create BWS access token secret if it doesn't exist
+        if ! gcloud secrets describe bws-access-token --project="${PROJECT_ID}" &> /dev/null; then
+          echo -n "${{ env.BWS_ACCESS_TOKEN }}" | gcloud secrets create bws-access-token \
+            --data-file=- \
+            --project="${PROJECT_ID}"
+        fi
+        
+        # Create BWS project ID secret if it doesn't exist
+        if ! gcloud secrets describe bws-project-id --project="${PROJECT_ID}" &> /dev/null; then
+          echo -n "${{ env.BWS_PROJECT_ID }}" | gcloud secrets create bws-project-id \
+            --data-file=- \
+            --project="${PROJECT_ID}"
+        fi
+
+    - name: Build Docker image
+      run: |
+        docker build -t "${IMAGE_NAME}:latest" \
+                     -f src/main/typescript/validator/Dockerfile \
+                     src/main/typescript/validator/
+        
+        # Tag with commit SHA and timestamp for versioning
+        TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+        COMMIT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+        docker tag "${IMAGE_NAME}:latest" "${IMAGE_NAME}:${COMMIT_SHA}-${TIMESTAMP}"
+
+    - name: Push Docker image
+      run: |
+        docker push "${IMAGE_NAME}:latest"
+        
+        # Push versioned tag
+        TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+        COMMIT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+        docker push "${IMAGE_NAME}:${COMMIT_SHA}-${TIMESTAMP}"
+
+    - name: Deploy to Cloud Run
+      run: |
+        # Update the cloud-run.yaml with actual values
+        DEPLOY_DIR="deploy/cloud/${ENVIRONMENT}"
+        
+        if [ ! -f "${DEPLOY_DIR}/cloud-run.yaml" ]; then
+          echo "Cloud Run configuration not found for environment: ${ENVIRONMENT}"
+          exit 1
+        fi
+        
+        # Create temporary deployment file with substitutions
+        cp "${DEPLOY_DIR}/cloud-run.yaml" cloud-run-deploy.yaml
+        sed -i "s/PROJECT_ID/${PROJECT_ID}/g" cloud-run-deploy.yaml
+        sed -i "s/SERVICE_NAME/${SERVICE_NAME}/g" cloud-run-deploy.yaml
+        sed -i "s|IMAGE_NAME|${IMAGE_NAME}:latest|g" cloud-run-deploy.yaml
+        
+        # Deploy the service
+        gcloud run services replace cloud-run-deploy.yaml \
+          --region="${REGION}" \
+          --project="${PROJECT_ID}"
+
+    - name: Get service URL
+      id: get-url
+      run: |
+        SERVICE_URL=$(gcloud run services describe "${SERVICE_NAME}" \
+                     --region="${REGION}" \
+                     --project="${PROJECT_ID}" \
+                     --format="value(status.url)")
+        echo "SERVICE_URL=${SERVICE_URL}" >> $GITHUB_OUTPUT
+        echo "Service URL: ${SERVICE_URL}"
+
+    - name: Test deployment
+      run: |
+        SERVICE_URL="${{ steps.get-url.outputs.SERVICE_URL }}"
+        
+        echo "Testing health endpoint..."
+        for i in {1..5}; do
+          if curl -f "${SERVICE_URL}/health" > /dev/null 2>&1; then
+            echo "✅ Health check passed"
+            break
+          else
+            echo "⏳ Attempt $i/5 failed, waiting 10 seconds..."
+            sleep 10
+          fi
+          
+          if [ $i -eq 5 ]; then
+            echo "❌ Health check failed after 5 attempts"
+            exit 1
+          fi
+        done
+
+    - name: Update deployment status
+      if: always()
+      run: |
+        if [ "${{ job.status }}" = "success" ]; then
+          echo "🎉 Deployment to ${ENVIRONMENT} completed successfully!"
+          echo "Service URL: ${{ steps.get-url.outputs.SERVICE_URL }}"
+        else
+          echo "❌ Deployment to ${ENVIRONMENT} failed"
+        fi
+
+    - name: Cleanup
+      if: always()
+      run: |
+        rm -f cloud-run-deploy.yaml /tmp/gcp-key.json
