@@ -32,7 +32,7 @@ jobs:
     - name: Install BWS CLI
       run: |
         # Install BWS CLI using pre-built binary for Linux x86_64
-        wget -O bws.zip "https://github.com/bitwarden/sdk-sm/releases/download/bws-v1.0.0/bws-x86_64-unknown-linux-gnu.zip"
+        wget -O bws.zip "https://github.com/bitwarden/sdk-sm/releases/download/bws-v1.0.0/bws-x86_64-unknown-linux-gnu-1.0.0.zip"
         unzip bws.zip
         sudo chmod +x bws
         sudo mv bws /usr/local/bin/
