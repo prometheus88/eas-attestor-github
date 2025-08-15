@@ -12,8 +12,8 @@ vars:
 tasks:
   # Build tasks (application-specific only)
   build:
-    desc: Build all application components (docs, dApp, and validator)
-    deps: [build:docs, build:dist, build:validator]
+    desc: Build all application components (dApp and validator)
+    deps: [build:dist, build:validator]
 
   build:docs:
     desc: Generate contract documentation
@@ -32,9 +32,7 @@ tasks:
     cmds:
       - mkdir -p {{.HTML_DIST_DIR}}
       - cp -r src/main/html/* {{.HTML_DIST_DIR}}/
-      - mkdir -p {{.HTML_DIST_DIR}}/docs
-      - cp -r {{.HTML_DOCS_DIR}}/* {{.HTML_DIST_DIR}}/docs/ || true
-    deps: [build:docs]
+    deps: []
     sources:
       - src/main/html/**/*
     generates:
