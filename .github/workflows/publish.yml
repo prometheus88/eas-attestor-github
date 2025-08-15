@@ -4,7 +4,10 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'src/html/**'
+      - 'src/main/html/**'
+      - 'src/main/typescript/validator/**'
+      - '.github/workflows/publish.yml'
+      - 'taskfiles/App.yml'
   workflow_dispatch:
 
 jobs:
@@ -37,8 +40,24 @@ jobs:
           forge install
           npm install
 
-      - name: Build site
-        run: task build
+      - name: Build site for production
+        run: |
+          # Generate production config with environment variables
+          echo "window.ENV_CONFIG = { validatorUrl: '${{ secrets.VALIDATOR_URL || 'https://validator.eas-attestor.com' }}' };" > src/main/html/config.js
+          
+          # Build the static site first
+          task app:build:dist:prod
+          
+          # Process Jekyll variables in the built HTML files
+          echo "Processing Jekyll variables..."
+          cd build/html/dist
+          
+          # Replace Jekyll variables with actual values from GitHub context
+          find . -name "*.html" -exec sed -i 's|{{site.github.repository_url}}|https://github.com/${{ github.repository }}|g' {} \;
+          find . -name "*.html" -exec sed -i 's|{{site.github.owner_name}}|${{ github.repository_owner }}|g' {} \;
+          find . -name "*.html" -exec sed -i 's|{{site.github.repository_name}}|${{ github.event.repository.name }}|g' {} \;
+          
+          echo "Jekyll variables processed successfully"
           
       - name: Setup Pages
         uses: actions/configure-pages@v5
