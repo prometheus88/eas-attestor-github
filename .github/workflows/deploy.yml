@@ -41,9 +41,14 @@ jobs:
         source ~/.cargo/env
         
         # Build BWS
+        pwd
+        ls -la
         cargo build --release
-        ls -la target/release/
-        sudo cp target/release/bws /usr/local/bin/
+        echo "Build completed, checking structure:"
+        find . -name "bws" -type f 2>/dev/null || echo "No bws binary found"
+        find . -name "target" -type d 2>/dev/null || echo "No target directory found"
+        ls -la target/ 2>/dev/null || echo "No target directory"
+        ls -la target/release/ 2>/dev/null || echo "No target/release directory"
         cd ../../../ && rm -rf sdk-sm-bws-v1.0.0 bws-source.tar.gz
 
     - name: Set up environment variables and resolve GCP credentials
