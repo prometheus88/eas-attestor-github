@@ -28,15 +28,53 @@ tasks:
       - "{{.HTML_DOCS_DIR}}/**/*"
 
   build:dist:
-    desc: Build dApp for deployment
+    desc: Build dApp for deployment (defaults to development)
     cmds:
+      - task app:build:dist:dev
+
+  build:dist:dev:
+    desc: Build dApp for development deployment
+    cmds:
+      - echo "🔨 Building for development environment..."
       - mkdir -p {{.HTML_DIST_DIR}}
       - cp -r src/main/html/* {{.HTML_DIST_DIR}}/
+      - cp src/main/html/config.dev.js {{.HTML_DIST_DIR}}/config.js
       - mkdir -p {{.HTML_DIST_DIR}}/docs
       - cp -r {{.HTML_DOCS_DIR}}/* {{.HTML_DIST_DIR}}/docs/ || true
+      - echo "✅ Development build complete"
     deps: [build:docs]
     sources:
       - src/main/html/**/*
+    generates:
+      - "{{.HTML_DIST_DIR}}/**/*"
+
+  build:dist:prod:
+    desc: Build dApp for production deployment
+    cmds:
+      - echo "🚀 Building for production environment..."
+      - mkdir -p {{.HTML_DIST_DIR}}
+      - cp -r src/main/html/* {{.HTML_DIST_DIR}}/
+      - cp src/main/html/config.prod.js {{.HTML_DIST_DIR}}/config.js
+      - mkdir -p {{.HTML_DIST_DIR}}/docs
+      - cp -r {{.HTML_DOCS_DIR}}/* {{.HTML_DIST_DIR}}/docs/ || true
+      - echo "✅ Production build complete"
+    deps: [build:docs]
+    sources:
+      - src/main/html/**/*
+    generates:
+      - "{{.HTML_DIST_DIR}}/**/*"
+
+  build:dist:prod:custom:
+    desc: Build dApp for production with custom validator URL
+    cmds:
+      - echo "🚀 Building for production with custom validator URL..."
+      - ./scripts/task/app/build-prod.sh
+    env:
+      VALIDATOR_URL: '{{.VALIDATOR_URL | default "https://validator.eas-attestor.com"}}'
+    deps: [build:docs]
+    sources:
+      - src/main/html/**/*
+      - scripts/task/app/build-prod.sh
     generates:
       - "{{.HTML_DIST_DIR}}/**/*"
 

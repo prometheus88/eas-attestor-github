@@ -4,7 +4,10 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'src/html/**'
+      - 'src/main/html/**'
+      - 'src/main/typescript/validator/**'
+      - '.github/workflows/publish.yml'
+      - 'taskfiles/App.yml'
   workflow_dispatch:
 
 jobs:
@@ -37,8 +40,11 @@ jobs:
           forge install
           npm install
 
-      - name: Build site
-        run: task build
+      - name: Build site for production
+        run: |
+          # Generate production config with environment variables
+          echo "window.ENV_CONFIG = { validatorUrl: '${{ secrets.VALIDATOR_URL || 'https://validator.eas-attestor.com' }}' };" > src/main/html/config.js
+          task app:build:dist:prod
           
       - name: Setup Pages
         uses: actions/configure-pages@v5

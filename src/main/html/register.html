@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EAS Attestor for Github</title>
     <script src="https://unpkg.com/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+    <script src="./config.js"></script>
     <script type="module">
         // Load EAS SDK from ESM.sh (the working CDN)
         const easModule = await import('https://esm.sh/@ethereum-attestation-service/eas-sdk@2.7.0');
@@ -407,15 +408,15 @@
         console.log('window.EAS:', window.EAS);
         console.log('window.ethers:', window.ethers);
 
-        // EAS Contract addresses on Base networks
+        // EAS Contract addresses from configuration
         const EAS_ADDRESSES = {
             'base-sepolia': {
-                eas: '0x4200000000000000000000000000000000000021',
-                schemaRegistry: '0x4200000000000000000000000000000000000020'
+                eas: window.ENV_CONFIG.easAddress || '0x4200000000000000000000000000000000000021',
+                schemaRegistry: window.ENV_CONFIG.schemaRegistryAddress || '0x4200000000000000000000000000000000000020'
             },
             'base': {
-                eas: '0x4200000000000000000000000000000000000021', 
-                schemaRegistry: '0x4200000000000000000000000000000000000020'
+                eas: window.ENV_CONFIG.easAddress || '0x4200000000000000000000000000000000000021', 
+                schemaRegistry: window.ENV_CONFIG.schemaRegistryAddress || '0x4200000000000000000000000000000000000020'
             }
         };
 
@@ -423,6 +424,9 @@
             'base-sepolia': 84532,
             'base': 8453
         };
+
+        // Get default network from configuration
+        const DEFAULT_NETWORK = window.ENV_CONFIG.network || 'base-sepolia';
 
         // Schema for validated domain identifier to Ethereum address attestation
         // Schema: "string domain,string identifier,string proofUrl,bytes validationSig,uint256 validatedAt,address validator"  
@@ -633,8 +637,8 @@
 
         async function requestValidation(githubUsername, gistUrl, ethereumAddress) {
             try {
-                // Call the validator service
-                const response = await fetch('http://localhost:6001/validate', {
+                            // Call the validator service
+            const response = await fetch(window.ENV_CONFIG.validatorUrl + '/validate', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'

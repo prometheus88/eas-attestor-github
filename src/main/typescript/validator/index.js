@@ -12,7 +12,19 @@ const PORT = process.env.PORT || 8080;
 
 // Middleware
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: [
+    'http://localhost:3000',           // Local development
+    'http://localhost:5000',           // Alternative local port
+    'https://*.github.io',             // GitHub Pages (any user)
+    'https://allenday.github.io',      // Original repository
+    'https://eas-attestor.com',        // Custom domain (if configured)
+    'https://*.eas-attestor.com'       // Subdomains
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json({ limit: '10mb' }));
 
 // Bitwarden secret retrieval
