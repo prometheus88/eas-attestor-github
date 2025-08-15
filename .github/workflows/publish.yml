@@ -40,11 +40,6 @@ jobs:
           forge install
           npm install
 
-      - name: Install Jekyll
-        run: |
-          gem install jekyll bundler
-          echo "Jekyll version: $(jekyll --version)"
-          
       - name: Build site for production
         run: |
           # Generate production config with environment variables
