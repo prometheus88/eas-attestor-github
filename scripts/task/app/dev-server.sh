@@ -15,7 +15,7 @@ sleep 3
 
 # Start HTTP server in background  
 echo "🌐 Starting dApp server..."
-cd build/dist
+cd build/html/dist
 python3 -m http.server 3000 > /tmp/server.log 2>&1 &
 SERVER_PID=$!
 cd ../..
