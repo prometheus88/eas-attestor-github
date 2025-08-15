@@ -3,40 +3,55 @@ version: '3'
 # Application-specific tasks for EAS Attestor for Github
 vars:
   BUILD_DIR: build
-  DIST_DIR: "{{.BUILD_DIR}}/dist"
-  SITE_DIR: "{{.BUILD_DIR}}/site"  
-  DOCS_DIR: "{{.BUILD_DIR}}/docs"
+  HTML_DIST_DIR: "{{.BUILD_DIR}}/html/dist"
+  HTML_DOCS_DIR: "{{.BUILD_DIR}}/html/docs"
+  VALIDATOR_SRC_DIR: "src/main/typescript/validator"
+  VALIDATOR_BUILD_DIR: "{{.BUILD_DIR}}/typescript/validator"
+  VALIDATOR_DEPLOY_DIR: "deploy/validator"
 
 tasks:
   # Build tasks (application-specific only)
   build:
-    desc: Build application-specific components (docs and dApp)
-    deps: [build:docs, build:dist]
+    desc: Build all application components (docs, dApp, and validator)
+    deps: [build:docs, build:dist, build:validator]
 
   build:docs:
     desc: Generate contract documentation
     cmds:
       - forge doc --build
-      - mkdir -p {{.DOCS_DIR}}
-      - rm -rf {{.DOCS_DIR}}/*
-      - cp -r docs/book/* {{.DOCS_DIR}}/ || echo "No docs generated yet"
+      - mkdir -p {{.HTML_DOCS_DIR}}
+      - rm -rf {{.HTML_DOCS_DIR}}/*
+      - cp -r docs/book/* {{.HTML_DOCS_DIR}}/ || echo "No docs generated yet"
     sources:
       - src/main/solidity/**/*.sol
     generates:
-      - "{{.DOCS_DIR}}/**/*"
+      - "{{.HTML_DOCS_DIR}}/**/*"
 
   build:dist:
     desc: Build dApp for deployment
     cmds:
-      - mkdir -p {{.DIST_DIR}}
-      - cp -r src/main/html/* {{.DIST_DIR}}/
-      - mkdir -p {{.DIST_DIR}}/docs
-      - cp -r {{.DOCS_DIR}}/* {{.DIST_DIR}}/docs/ || true
+      - mkdir -p {{.HTML_DIST_DIR}}
+      - cp -r src/main/html/* {{.HTML_DIST_DIR}}/
+      - mkdir -p {{.HTML_DIST_DIR}}/docs
+      - cp -r {{.HTML_DOCS_DIR}}/* {{.HTML_DIST_DIR}}/docs/ || true
     deps: [build:docs]
     sources:
       - src/main/html/**/*
     generates:
-      - "{{.DIST_DIR}}/**/*"
+      - "{{.HTML_DIST_DIR}}/**/*"
+
+  build:validator:
+    desc: Build validator service
+    cmds:
+      - echo "🔨 Building validator service..."
+      - mkdir -p {{.VALIDATOR_BUILD_DIR}}
+      - cp -r {{.VALIDATOR_SRC_DIR}}/* {{.VALIDATOR_BUILD_DIR}}/
+      - cd {{.VALIDATOR_BUILD_DIR}} && npm ci --only=production
+      - echo "✅ Validator build complete"
+    sources:
+      - "{{.VALIDATOR_SRC_DIR}}/**/*"
+    generates:
+      - "{{.VALIDATOR_BUILD_DIR}}/**/*"
 
   # Application tests (TypeScript)
   test:typescript:
@@ -85,10 +100,115 @@ tasks:
     cmds:
       - ./scripts/task/app/serve-bg.sh
 
+  # Validator service tasks
+  validator:install:
+    desc: Install validator dependencies
+    dir: '{{.VALIDATOR_SRC_DIR}}'
+    cmds:
+      - echo "Installing validator dependencies..."
+      - npm install
+
+  validator:dev:
+    desc: Run validator service locally for development
+    dir: '{{.VALIDATOR_SRC_DIR}}'
+    deps: [validator:install]
+    cmds:
+      - echo "Starting validator in development mode..."
+      - echo "Make sure to copy .env.example to .env and set VALIDATOR_PRIVATE_KEY"
+      - node index.js
+
+  validator:docker:build:
+    desc: Build validator Docker image
+    deps: [build:validator]
+    cmds:
+      - echo "Building validator Docker image..."
+      - cp {{.VALIDATOR_DEPLOY_DIR}}/docker/Dockerfile {{.VALIDATOR_BUILD_DIR}}/
+      - docker build -t eas-validator:latest {{.VALIDATOR_BUILD_DIR}}
+      - echo "Docker image built - eas-validator:latest"
+
+  validator:docker:run:
+    desc: Run validator container locally
+    deps: [validator:docker:build]
+    cmds:
+      - echo "Starting validator container..."
+      - docker run --rm -p 5001:5001 --env-file {{.VALIDATOR_SRC_DIR}}/.env eas-validator:latest
+
+  validator:docker:bg:
+    desc: Run validator container in background
+    deps: [validator:docker:build]
+    cmds:
+      - echo "Starting validator container in background..."
+      - docker run -d --name eas-validator -p 5001:5001 --env-file {{.VALIDATOR_SRC_DIR}}/.env eas-validator:latest
+      - echo "Validator running at http://localhost:5001"
+      - echo "Use 'task app:validator:docker:stop' to stop"
+
+  validator:docker:stop:
+    desc: Stop validator container
+    cmds:
+      - echo "Stopping validator container..."
+      - docker stop eas-validator || true
+      - docker rm eas-validator || true
+
+  validator:docker:logs:
+    desc: Show validator container logs
+    cmds:
+      - docker logs -f eas-validator
+
+  validator:health:
+    desc: Check validator health
+    cmds:
+      - echo "Checking validator health..."
+      - curl -f http://localhost:5001/health || echo "Validator not responding"
+
+  validator:test:
+    desc: Test validation endpoint (requires GITHUB_USERNAME, GIST_URL, ETH_ADDRESS)
+    preconditions:
+      - sh: '[ -n "{{.GITHUB_USERNAME}}" ]'
+        msg: "GITHUB_USERNAME required. Usage: task app:validator:test GITHUB_USERNAME=yourname GIST_URL=https://... ETH_ADDRESS=0x..."
+      - sh: '[ -n "{{.GIST_URL}}" ]'
+        msg: "GIST_URL required"
+      - sh: '[ -n "{{.ETH_ADDRESS}}" ]'
+        msg: "ETH_ADDRESS required"
+    cmds:
+      - echo "Testing validation endpoint..."
+      - |
+        curl -X POST http://localhost:5001/validate \
+          -H "Content-Type: application/json" \
+          -d '{
+            "githubUsername": "{{.GITHUB_USERNAME}}",
+            "gistUrl": "{{.GIST_URL}}",
+            "ethereumAddress": "{{.ETH_ADDRESS}}"
+          }' | jq .
+
   dev:stop:
     desc: Stop development environment
     cmds:
       - ./scripts/task/app/stop-dev.sh
+
+  # Docker Compose tasks
+  docker:up:
+    desc: Start local docker-compose environment
+    deps: [build]
+    cmds:
+      - echo "Starting local docker-compose environment..."
+      - cd deploy/local && docker compose up -d
+      - echo "Services running at localhost ports 6000 (dApp) and 6001 (validator)"
+
+  docker:down:
+    desc: Stop local docker-compose environment
+    cmds:
+      - echo "Stopping local docker-compose environment..."
+      - cd deploy/local && docker compose down
+
+  docker:logs:
+    desc: Show docker-compose logs
+    cmds:
+      - cd deploy/local && docker compose logs -f
+
+  docker:status:
+    desc: Show docker-compose status
+    cmds:
+      - cd deploy/local && docker compose ps
 
   create-schema:
     desc: Show instructions for creating EAS schema
@@ -139,7 +259,8 @@ tasks:
       - echo "🚀 Setting up EAS Attestor for Github..."
       - forge install
       - npm install
-      - mkdir -p {{.BUILD_DIR}} {{.DIST_DIR}} {{.SITE_DIR}} {{.DOCS_DIR}} deployments state
+      - mkdir -p {{.BUILD_DIR}} {{.HTML_DIST_DIR}} {{.HTML_DOCS_DIR}} {{.VALIDATOR_BUILD_DIR}} deployments state
+      - task app:validator:install
       - task build
       - echo "✅ Application setup complete!"
 
