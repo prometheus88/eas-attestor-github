@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Revoke EAS Attestation</title>
+    <script src="https://unpkg.com/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+    <script type="module">
+        // Load EAS SDK from ESM.sh
+        const easModule = await import('https://esm.sh/@ethereum-attestation-service/eas-sdk@2.7.0');
+        window.EAS = easModule.EAS;
+        window.SchemaEncoder = easModule.SchemaEncoder;
+        console.log('✅ EAS SDK loaded successfully');
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .navbar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 15px 0;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+        }
+
+        .nav-logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #2c3e50;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 30px;
+        }
+
+        .nav-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            color: #2c3e50;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            max-width: 600px;
+            width: 95%;
+            margin: 40px auto;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 2.2rem;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: #7f8c8d;
+            margin-bottom: 40px;
+            font-size: 1.1rem;
+            text-align: center;
+        }
+
+        .warning-box {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            color: #856404;
+        }
+
+        .warning-box strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .input-group {
+            margin: 20px 0;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #2c3e50;
+            font-weight: 600;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(220, 53, 69, 0.3);
+        }
+
+        button:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .connect-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .connect-btn:hover:not(:disabled) {
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-weight: 600;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .help-text {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+
+        @media (max-width: 768px) {
+            .nav-container {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .container {
+                margin: 20px auto;
+                padding: 25px;
+            }
+            
+            h1 {
+                font-size: 1.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="./index.html" class="nav-logo">🔗 EAS Attestor</a>
+            <div class="nav-links">
+                <a href="./index.html" class="nav-link">Browse</a>
+                <a href="./register.html" class="nav-link">Register</a>
+                <a href="./verify.html" class="nav-link">Verify</a>
+                <a href="./revoke.html" class="nav-link active">Revoke</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>🗑️ Revoke Attestation</h1>
+        <p class="subtitle">Permanently revoke an existing EAS attestation</p>
+        
+        <div class="warning-box">
+            <strong>⚠️ Warning:</strong>
+            Revocation is permanent and cannot be undone. Only the original attestor can revoke their own attestations.
+        </div>
+        
+        <div class="help-text">
+            <strong>How to find your Attestation UID:</strong><br>
+            • Check your wallet's transaction history on BaseScan<br>
+            • Use the <a href="./verify.html">Verify page</a> to look up attestations<br>
+            • Visit the <a href="https://sepolia.easscan.org/" target="_blank">EAS Explorer</a> and search by your address
+        </div>
+        
+        <button class="connect-btn" onclick="connectWallet()">Connect Wallet</button>
+        <div id="walletStatus"></div>
+        
+        <div class="input-group">
+            <label for="attestationUID">Attestation UID:</label>
+            <input type="text" id="attestationUID" placeholder="0x1234567890abcdef..." />
+        </div>
+        
+        <button id="revokeButton" onclick="revokeAttestation()" disabled>Revoke Attestation</button>
+        
+        <div id="revocationStatus"></div>
+    </div>
+
+    <script>
+        // Global state
+        let walletAddress = null;
+
+        // EAS Contract addresses on Base networks
+        const EAS_ADDRESSES = {
+            'base-sepolia': {
+                eas: '0x4200000000000000000000000000000000000021',
+                schemaRegistry: '0x4200000000000000000000000000000000000020'
+            },
+            'base': {
+                eas: '0x4200000000000000000000000000000000000021', 
+                schemaRegistry: '0x4200000000000000000000000000000000000020'
+            }
+        };
+
+        const CHAIN_IDS = {
+            'base-sepolia': 84532,
+            'base': 8453
+        };
+
+        // Schema for validated domain identifier to Ethereum address attestation
+        const ATTESTATION_SCHEMA_UID = "0xe5daad34f7c6c87eb60d2d32bde166ff4b87c8d165a95af58a93e774fc28c96e";
+
+        async function connectWallet() {
+            const status = document.getElementById('walletStatus');
+            
+            try {
+                if (typeof window.ethereum === 'undefined') {
+                    throw new Error('Please install MetaMask or another Web3 wallet');
+                }
+
+                const accounts = await window.ethereum.request({
+                    method: 'eth_requestAccounts'
+                });
+
+                if (accounts.length === 0) {
+                    throw new Error('No accounts found');
+                }
+
+                walletAddress = accounts[0];
+                
+                // Get network info
+                const chainId = await window.ethereum.request({
+                    method: 'eth_chainId'
+                });
+                
+                const currentChainId = parseInt(chainId, 16);
+                const networkName = Object.keys(CHAIN_IDS).find(key => 
+                    CHAIN_IDS[key] === currentChainId
+                ) || 'unknown';
+
+                // Check if we're on a supported network
+                const supportedChainIds = Object.values(CHAIN_IDS);
+                const isSupported = supportedChainIds.includes(currentChainId);
+
+                if (!isSupported) {
+                    status.innerHTML = `
+                        <div class="status error">
+                            <strong>⚠️ Unsupported Network</strong><br>
+                            Current: ${networkName} (${currentChainId})<br>
+                            Please switch to Base or Base Sepolia
+                        </div>
+                    `;
+                    return;
+                }
+
+                status.innerHTML = `
+                    <div class="status success">
+                        <strong>✅ Wallet Connected!</strong><br>
+                        Address: ${walletAddress}<br>
+                        Network: ${networkName} (${currentChainId})
+                    </div>
+                `;
+
+                enableRevocationInput();
+
+            } catch (error) {
+                status.innerHTML = `
+                    <div class="status error">
+                        <strong>❌ Connection Failed:</strong> ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        function enableRevocationInput() {
+            const input = document.getElementById('attestationUID');
+            const button = document.getElementById('revokeButton');
+            
+            input.addEventListener('input', () => {
+                const uid = input.value.trim();
+                button.disabled = uid.length === 0 || !uid.startsWith('0x');
+            });
+        }
+
+        async function revokeAttestation() {
+            const button = document.getElementById('revokeButton');
+            const status = document.getElementById('revocationStatus');
+            const uid = document.getElementById('attestationUID').value.trim();
+            
+            try {
+                button.disabled = true;
+                button.textContent = 'Revoking...';
+                
+                if (!uid) {
+                    throw new Error('Please enter an attestation UID');
+                }
+                
+                if (!walletAddress) {
+                    throw new Error('Please connect your wallet first');
+                }
+                
+                // Get current network
+                const chainId = await window.ethereum.request({
+                    method: 'eth_chainId'
+                });
+                const networkName = Object.keys(CHAIN_IDS).find(key => 
+                    CHAIN_IDS[key] === parseInt(chainId, 16)
+                );
+                
+                if (!networkName) {
+                    throw new Error('Please switch to Base or Base Sepolia network');
+                }
+
+                // Get EAS contract address for this network
+                const easAddress = EAS_ADDRESSES[networkName]?.eas;
+                if (!easAddress) {
+                    throw new Error('EAS not deployed on this network');
+                }
+
+                // Initialize EAS SDK
+                const provider = new ethers.BrowserProvider(window.ethereum);
+                const signer = await provider.getSigner();
+                const eas = new window.EAS(easAddress);
+                eas.connect(signer);
+
+                // Revoke the attestation
+                const tx = await eas.revoke({
+                    schema: ATTESTATION_SCHEMA_UID,
+                    data: {
+                        uid: uid,
+                        value: 0n
+                    }
+                });
+
+                console.log('Revocation tx object:', tx);
+                const txHash = tx?.hash || tx?.txHash || (tx?.tx ? tx.tx.hash : null) || 'pending';
+
+                status.innerHTML = `
+                    <div class="status success">
+                        <strong>🚀 Revocation Submitted!</strong><br>
+                        Transaction: <code>${txHash}</code><br>
+                        <small>Waiting for confirmation...</small>
+                    </div>
+                `;
+
+                // Wait for transaction confirmation
+                const receipt = await tx.wait();
+                console.log('Revocation receipt object:', receipt);
+                const receiptHash = receipt?.hash || receipt?.transactionHash || receipt?.txHash || txHash;
+                
+                status.innerHTML = `
+                    <div class="status success">
+                        <strong>✅ Attestation Revoked!</strong><br>
+                        Transaction: <code>${receiptHash}</code><br>
+                        <small>UID ${uid} has been successfully revoked</small>
+                    </div>
+                `;
+
+            } catch (error) {
+                status.innerHTML = `
+                    <div class="status error">
+                        <strong>❌ Revocation Failed:</strong> ${error.message}
+                    </div>
+                `;
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Revoke Attestation';
+            }
+        }
+
+        // Auto-connect if wallet was previously connected
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof window.ethereum !== 'undefined') {
+                window.ethereum.request({ method: 'eth_accounts' })
+                    .then(accounts => {
+                        if (accounts.length > 0) {
+                            connectWallet();
+                        }
+                    })
+                    .catch(console.error);
+            }
+        });
+    </script>
+</body>
+</html>

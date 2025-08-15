@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EAS Attestation Verifier</title>
+    <script src="https://unpkg.com/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+    <script type="module">
+        // Load EAS SDK from ESM.sh
+        const easModule = await import('https://esm.sh/@ethereum-attestation-service/eas-sdk@2.7.0');
+        window.EAS = easModule.EAS;
+        window.SchemaEncoder = easModule.SchemaEncoder;
+        console.log('✅ EAS SDK loaded successfully');
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .navbar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 15px 0;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+        }
+
+        .nav-logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #2c3e50;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 30px;
+        }
+
+        .nav-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            color: #2c3e50;
+        }
+
+        .page-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: calc(100vh - 80px);
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            max-width: 800px;
+            width: 95%;
+            text-align: center;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 2.2rem;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            color: #7f8c8d;
+            margin-bottom: 40px;
+            font-size: 1.1rem;
+        }
+
+        .input-group {
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #2c3e50;
+            font-weight: 600;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin: 10px 5px;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        button:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-weight: 600;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .attestation-details {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            font-weight: 600;
+            color: #2c3e50;
+            min-width: 150px;
+        }
+
+        .detail-value {
+            color: #6c757d;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.9rem;
+            word-break: break-all;
+        }
+
+        .verification-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .verified {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .unverified {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        @media (max-width: 768px) {
+            .nav-container {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .container {
+                margin: 20px;
+                padding: 25px;
+            }
+            
+            h1 {
+                font-size: 1.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="./index.html" class="nav-logo">🔗 EAS Attestor</a>
+            <div class="nav-links">
+                <a href="./index.html" class="nav-link">Browse</a>
+                <a href="./register.html" class="nav-link">Register</a>
+                <a href="./verify.html" class="nav-link active">Verify</a>
+                <a href="./revoke.html" class="nav-link">Revoke</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="page-container">
+        <div class="container">
+        <h1>🔍 EAS Attestation Verifier</h1>
+        <p class="subtitle">Verify GitHub-to-Ethereum attestations by EAS UID</p>
+        
+        <div class="input-group">
+            <label for="attestationUID">Attestation UID:</label>
+            <input type="text" id="attestationUID" placeholder="0x1234567890abcdef..." />
+        </div>
+        
+        <button id="verifyButton" onclick="verifyAttestation()">Verify Attestation</button>
+        <button onclick="connectWallet()">Connect Wallet</button>
+        
+        <div id="status"></div>
+        <div id="attestationDetails"></div>
+        
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let walletAddress = null;
+        let provider = null;
+
+        // EAS Contract addresses on Base networks
+        const EAS_ADDRESSES = {
+            'base-sepolia': {
+                eas: '0x4200000000000000000000000000000000000021',
+                schemaRegistry: '0x4200000000000000000000000000000000000020'
+            },
+            'base': {
+                eas: '0x4200000000000000000000000000000000000021', 
+                schemaRegistry: '0x4200000000000000000000000000000000000020'
+            }
+        };
+
+        const CHAIN_IDS = {
+            'base-sepolia': 84532,
+            'base': 8453
+        };
+
+        // Schema for validated domain identifier to Ethereum address attestation
+        const ATTESTATION_SCHEMA_UID = "0xe5daad34f7c6c87eb60d2d32bde166ff4b87c8d165a95af58a93e774fc28c96e";
+        
+        // Our known validator address (from the .env file)
+        const KNOWN_VALIDATOR_ADDRESS = "0xCD57460f69Bc442BF4A6A90cD615BdE4232122DB";
+
+        async function connectWallet() {
+            try {
+                if (typeof window.ethereum === 'undefined') {
+                    throw new Error('Please install MetaMask or another Web3 wallet');
+                }
+
+                const accounts = await window.ethereum.request({
+                    method: 'eth_requestAccounts'
+                });
+
+                if (accounts.length === 0) {
+                    throw new Error('No accounts found');
+                }
+
+                walletAddress = accounts[0];
+                provider = new ethers.BrowserProvider(window.ethereum);
+                
+                updateStatus('success', `✅ Wallet connected: ${walletAddress}`);
+            } catch (error) {
+                updateStatus('error', `❌ Connection failed: ${error.message}`);
+            }
+        }
+
+        async function verifyAttestation() {
+            const button = document.getElementById('verifyButton');
+            const uid = document.getElementById('attestationUID').value.trim();
+            
+            if (!uid) {
+                updateStatus('error', 'Please enter an attestation UID');
+                return;
+            }
+
+            if (!provider) {
+                updateStatus('error', 'Please connect your wallet first');
+                return;
+            }
+
+            try {
+                button.disabled = true;
+                button.textContent = 'Verifying...';
+                
+                updateStatus('info', '🔍 Fetching attestation data...');
+
+                // Get current network
+                const chainId = await window.ethereum.request({
+                    method: 'eth_chainId'
+                });
+                const currentChainId = parseInt(chainId, 16);
+                const networkName = Object.keys(CHAIN_IDS).find(key => 
+                    CHAIN_IDS[key] === currentChainId
+                );
+                
+                if (!networkName) {
+                    throw new Error('Please switch to Base or Base Sepolia network');
+                }
+
+                // Get EAS contract address
+                const easAddress = EAS_ADDRESSES[networkName]?.eas;
+                if (!easAddress) {
+                    throw new Error('EAS not deployed on this network');
+                }
+
+                // Initialize EAS SDK
+                const eas = new window.EAS(easAddress);
+                eas.connect(provider);
+
+                // Get attestation
+                const attestation = await eas.getAttestation(uid);
+                
+                if (!attestation || attestation.uid === '0x0000000000000000000000000000000000000000000000000000000000000000') {
+                    throw new Error('Attestation not found');
+                }
+
+                // Decode the attestation data
+                const schemaEncoder = new window.SchemaEncoder("string domain,string identifier,string proofUrl,bytes validationSig,uint256 validatedAt,address validator");
+                const decodedData = schemaEncoder.decodeData(attestation.data);
+                
+                // Extract decoded values
+                const domain = decodedData.find(item => item.name === 'domain')?.value?.value || 'unknown';
+                const identifier = decodedData.find(item => item.name === 'identifier')?.value?.value || 'unknown';
+                const proofUrl = decodedData.find(item => item.name === 'proofUrl')?.value?.value || 'unknown';
+                const validationSig = decodedData.find(item => item.name === 'validationSig')?.value?.value || '0x';
+                const validatedAt = decodedData.find(item => item.name === 'validatedAt')?.value?.value || '0';
+                const validator = decodedData.find(item => item.name === 'validator')?.value?.value || '0x0';
+
+                // Check if validator matches our known validator
+                const isValidValidator = validator.toLowerCase() === KNOWN_VALIDATOR_ADDRESS.toLowerCase();
+                
+                // Display results
+                displayAttestationDetails({
+                    uid,
+                    attestor: attestation.attester,
+                    recipient: attestation.recipient,
+                    revoked: attestation.revocable && attestation.revocationTime > 0,
+                    domain,
+                    identifier,
+                    proofUrl,
+                    validator,
+                    isValidValidator,
+                    validatedAt: new Date(parseInt(validatedAt) * 1000).toLocaleString(),
+                    networkName
+                });
+
+                updateStatus('success', '✅ Attestation verified successfully!');
+
+            } catch (error) {
+                updateStatus('error', `❌ Verification failed: ${error.message}`);
+                document.getElementById('attestationDetails').innerHTML = '';
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Verify Attestation';
+            }
+        }
+
+        function displayAttestationDetails(details) {
+            const container = document.getElementById('attestationDetails');
+            
+            container.innerHTML = `
+                <div class="attestation-details">
+                    <h3>Attestation Details</h3>
+                    
+                    <div class="detail-row">
+                        <span class="detail-label">UID:</span>
+                        <span class="detail-value">${details.uid}</span>
+                    </div>
+                    
+                    <div class="detail-row">
+                        <span class="detail-label">Network:</span>
+                        <span class="detail-value">${details.networkName}</span>
+                    </div>
+                    
+                    <div class="detail-row">
+                        <span class="detail-label">Status:</span>
+                        <span class="verification-badge ${details.revoked ? 'unverified' : 'verified'}">
+                            ${details.revoked ? 'REVOKED' : 'ACTIVE'}
+                        </span>
+                    </div>
+                    
+                    <div class="detail-row">
+                        <span class="detail-label">Domain:</span>
+                        <span class="detail-value">${details.domain}</span>
+                    </div>
+                    
+                    <div class="detail-row">
+                        <span class="detail-label">GitHub Username:</span>
+                        <span class="detail-value">${details.identifier}</span>
+                    </div>
+                    
+                    <div class="detail-row">
+                        <span class="detail-label">Ethereum Address:</span>
+                        <span class="detail-value">${details.recipient}</span>
+                    </div>
+                    
+                    <div class="detail-row">
+                        <span class="detail-label">Proof URL:</span>
+                        <span class="detail-value"><a href="${details.proofUrl}" target="_blank">${details.proofUrl}</a></span>
+                    </div>
+                    
+                    <div class="detail-row">
+                        <span class="detail-label">Validator:</span>
+                        <span class="detail-value">
+                            ${details.validator}
+                            <span class="verification-badge ${details.isValidValidator ? 'verified' : 'unverified'}">
+                                ${details.isValidValidator ? 'TRUSTED' : 'UNKNOWN'}
+                            </span>
+                        </span>
+                    </div>
+                    
+                    <div class="detail-row">
+                        <span class="detail-label">Validated At:</span>
+                        <span class="detail-value">${details.validatedAt}</span>
+                    </div>
+                    
+                    <div class="detail-row">
+                        <span class="detail-label">Attestor:</span>
+                        <span class="detail-value">${details.attestor}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function updateStatus(type, message) {
+            const status = document.getElementById('status');
+            status.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        // Auto-connect if wallet was previously connected
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof window.ethereum !== 'undefined') {
+                window.ethereum.request({ method: 'eth_accounts' })
+                    .then(accounts => {
+                        if (accounts.length > 0) {
+                            connectWallet();
+                        }
+                    })
+                    .catch(console.error);
+            }
+        });
+    </script>
+</body>
+</html>
