@@ -98,16 +98,16 @@ jobs:
         # Tag with commit SHA and timestamp for versioning
         TIMESTAMP=$(date +%Y%m%d-%H%M%S)
         COMMIT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
-        docker tag "${IMAGE_NAME}:latest" "${IMAGE_NAME}:${COMMIT_SHA}-${TIMESTAMP}"
+        VERSIONED_TAG="${COMMIT_SHA}-${TIMESTAMP}"
+        echo "VERSIONED_TAG=${VERSIONED_TAG}" >> $GITHUB_ENV
+        docker tag "${IMAGE_NAME}:latest" "${IMAGE_NAME}:${VERSIONED_TAG}"
 
     - name: Push Docker image
       run: |
         docker push "${IMAGE_NAME}:latest"
         
         # Push versioned tag
-        TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-        COMMIT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
-        docker push "${IMAGE_NAME}:${COMMIT_SHA}-${TIMESTAMP}"
+        docker push "${IMAGE_NAME}:${VERSIONED_TAG}"
 
     - name: Deploy to Cloud Run
       run: |
