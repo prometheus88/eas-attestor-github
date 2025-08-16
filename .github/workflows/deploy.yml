@@ -48,8 +48,8 @@ jobs:
 
     - name: Set up environment variables and resolve GCP credentials
       run: |
-        # Determine environment
-        if [ "${{ github.event.inputs.environment }}" = "prod" ] || [ "${{ github.ref }}" = "refs/heads/main" ]; then
+        # Determine environment from explicit input only
+        if [ "${{ github.event.inputs.environment }}" = "prod" ]; then
           echo "ENVIRONMENT=prod" >> $GITHUB_ENV
           echo "SERVICE_NAME=eas-validator-prod" >> $GITHUB_ENV
           ENV_NAME="PROD"
