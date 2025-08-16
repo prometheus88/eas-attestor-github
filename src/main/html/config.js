@@ -45,8 +45,24 @@ window.EAS_CONFIG = {
             'base': 'https://base.easscan.org/graphql'
         },
         validator: {
-            local: 'http://localhost:6001',
-            production: '/api'  // Will be set based on deployment
+            local: 'http://localhost:8080',
+            getEndpoint: function() {
+                // Check for environment-specific override
+                if (window.EAS_VALIDATOR_URL) {
+                    return window.EAS_VALIDATOR_URL;
+                }
+                
+                // Check if we're in local development
+                if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                    return this.local;
+                }
+                
+                // For production, try to auto-detect from current domain
+                // This works when the frontend and validator are served from the same domain
+                const protocol = window.location.protocol;
+                const host = window.location.host;
+                return `${protocol}//${host.replace('-frontend', '')}/api/validator`;
+            }
         }
     }
 };
