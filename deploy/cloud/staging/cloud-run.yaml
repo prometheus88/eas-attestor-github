@@ -40,12 +40,10 @@ spec:
       - image: gcr.io/PROJECT_ID/eas-validator-staging:latest
         ports:
         - name: http1
-          containerPort: 5001
+          containerPort: 8080
         env:
         - name: NODE_ENV
           value: "staging"
-        - name: PORT
-          value: "5001"
         - name: NETWORK
           value: "CLOUD"
         - name: ENVIRONMENT
@@ -70,7 +68,7 @@ spec:
         livenessProbe:
           httpGet:
             path: /health
-            port: 5001
+            port: 8080
           initialDelaySeconds: 10
           periodSeconds: 30
           timeoutSeconds: 5
@@ -78,14 +76,14 @@ spec:
         readinessProbe:
           httpGet:
             path: /health
-            port: 5001
+            port: 8080
           periodSeconds: 10
           timeoutSeconds: 5
           failureThreshold: 3
         startupProbe:
           httpGet:
             path: /health
-            port: 5001
+            port: 8080
           initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 5
