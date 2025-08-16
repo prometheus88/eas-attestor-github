@@ -142,15 +142,48 @@ def validate_gcp_permissions(project_id: str, service_account_key: str, env_name
                 print_colored("    ❌ Secret Manager access denied", Colors.RED)
                 permission_errors += 1
             
-            # Test Container Registry access
+            # Test Container Registry read access
             try:
                 subprocess.run(
                     ['gcloud', 'container', 'images', 'list', f'--repository=gcr.io/{project_id}', '--limit', '1', '--quiet'],
                     check=True, capture_output=True
                 )
-                print("    ✅ Container Registry access confirmed")
+                print("    ✅ Container Registry read access confirmed")
             except subprocess.CalledProcessError:
-                print_colored("    ⚠️  Container Registry access limited (may work for push)", Colors.YELLOW)
+                print_colored("    ⚠️  Container Registry read access limited", Colors.YELLOW)
+            
+            # Test Container Registry write/push permissions by checking IAM
+            try:
+                sa_email = sa_data.get('client_email', '')
+                # Check if service account has artifact registry writer role
+                bindings_result = subprocess.run(
+                    ['gcloud', 'projects', 'get-iam-policy', project_id, '--format=json'],
+                    check=True, capture_output=True, text=True
+                )
+                iam_policy = json.loads(bindings_result.stdout)
+                
+                has_artifact_writer = False
+                has_storage_admin = False
+                
+                for binding in iam_policy.get('bindings', []):
+                    members = binding.get('members', [])
+                    role = binding.get('role', '')
+                    
+                    if f'serviceAccount:{sa_email}' in members:
+                        if role in ['roles/artifactregistry.writer', 'roles/artifactregistry.repoAdmin']:
+                            has_artifact_writer = True
+                        elif role == 'roles/storage.admin' or role == 'roles/storage.objectAdmin':
+                            has_storage_admin = True
+                
+                if has_artifact_writer or has_storage_admin:
+                    print("    ✅ Container Registry push permissions confirmed")
+                else:
+                    print_colored("    ❌ Container Registry push permissions missing", Colors.RED)
+                    print_colored("       Add role: gcloud projects add-iam-policy-binding {} --member='serviceAccount:{}' --role='roles/artifactregistry.repoAdmin'".format(project_id, sa_email), Colors.YELLOW)
+                    permission_errors += 1
+                    
+            except (subprocess.CalledProcessError, json.JSONDecodeError, KeyError):
+                print_colored("    ⚠️  Could not verify Container Registry push permissions", Colors.YELLOW)
             
             # Test IAM access for listing
             try:
@@ -200,7 +233,7 @@ def validate_gcp_permissions(project_id: str, service_account_key: str, env_name
                 return True
             else:
                 print_colored(f"    ❌ Missing {permission_errors} critical permissions", Colors.RED)
-                print_colored("    💡 Required roles: roles/run.developer, roles/secretmanager.secretAccessor, roles/iam.serviceAccountAdmin", Colors.YELLOW)
+                print_colored("    💡 Required roles: roles/run.developer, roles/secretmanager.secretAccessor, roles/iam.serviceAccountAdmin, roles/artifactregistry.repoAdmin", Colors.YELLOW)
                 return False
                 
         finally:
