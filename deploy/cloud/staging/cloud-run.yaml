@@ -20,8 +20,8 @@ spec:
         autoscaling.knative.dev/minScale: "0"
         autoscaling.knative.dev/maxScale: "5"
         
-        # Resource allocation (smaller for staging)
-        run.googleapis.com/cpu: "0.5"
+        # Resource allocation (minimum for concurrency > 1)
+        run.googleapis.com/cpu: "1"
         run.googleapis.com/memory: "256Mi"
         run.googleapis.com/startup-cpu-boost: "true"
         
@@ -60,10 +60,10 @@ spec:
           value: "BWS_PROJECT_ID_PLACEHOLDER"
         resources:
           limits:
-            cpu: "0.5"
+            cpu: "1"
             memory: "256Mi"
           requests:
-            cpu: "0.25"
+            cpu: "0.5"
             memory: "128Mi"
         livenessProbe:
           httpGet:
