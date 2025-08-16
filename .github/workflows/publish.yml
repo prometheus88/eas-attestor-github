@@ -55,7 +55,7 @@ jobs:
             export EAS_VALIDATOR_URL
           fi
           
-          task build
+          task app:build
           
       - name: Setup Pages
         uses: actions/configure-pages@v5
