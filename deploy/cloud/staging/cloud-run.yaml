@@ -20,9 +20,9 @@ spec:
         autoscaling.knative.dev/minScale: "0"
         autoscaling.knative.dev/maxScale: "5"
         
-        # Resource allocation (minimum for concurrency > 1)
+        # Resource allocation (minimum for Gen2 execution environment)
         run.googleapis.com/cpu: "1"
-        run.googleapis.com/memory: "256Mi"
+        run.googleapis.com/memory: "512Mi"
         run.googleapis.com/startup-cpu-boost: "true"
         
         # Networking (commented out - can be enabled if VPC connector is configured)
@@ -61,10 +61,10 @@ spec:
         resources:
           limits:
             cpu: "1"
-            memory: "256Mi"
+            memory: "512Mi"
           requests:
             cpu: "0.5"
-            memory: "128Mi"
+            memory: "512Mi"
         livenessProbe:
           httpGet:
             path: /health
