@@ -1,21 +1,25 @@
-FROM node:18-alpine
-
-# Install curl for health checks and Rust for building BWS
-RUN apk add --no-cache curl bash jq wget tar gcc musl-dev
+# Build BWS from source in a separate stage
+FROM alpine:latest as bws-builder
+RUN apk add --no-cache curl bash wget tar gcc musl-dev
 
 # Install Rust
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 
-# Build BWS from source for correct architecture
+# Build BWS
 RUN wget -O bws-source.tar.gz https://github.com/bitwarden/sdk-sm/archive/refs/tags/bws-v1.0.0.tar.gz && \
     tar -xzf bws-source.tar.gz
 WORKDIR sdk-sm-bws-v1.0.0
 RUN cargo build --release --bin bws
-RUN find . -name "bws" -type f
-RUN cp target/release/bws /usr/local/bin/
-WORKDIR /
-RUN rm -rf sdk-sm-bws-v1.0.0 bws-source.tar.gz
+
+# Main application stage
+FROM node:18-alpine
+
+# Install basic utilities
+RUN apk add --no-cache curl bash jq
+
+# Copy BWS binary from builder stage
+COPY --from=bws-builder /sdk-sm-bws-v1.0.0/target/release/bws /usr/local/bin/bws
 
 WORKDIR /app
 
@@ -40,9 +44,8 @@ RUN addgroup -g 1001 -S nodejs && \
 RUN chown -R validator:nodejs /app
 USER validator
 
-EXPOSE 5001
+EXPOSE 8080
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD curl -f http://localhost:5001/health || exit 1
+# Remove healthcheck since Cloud Run manages health checks
 
 CMD ["node", "index.js"]
