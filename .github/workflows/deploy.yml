@@ -84,21 +84,6 @@ jobs:
                               secretmanager.googleapis.com \
                               --project=${PROJECT_ID}
 
-    - name: Create service account if not exists
-      run: |
-        SA_EMAIL="eas-validator-sa@${PROJECT_ID}.iam.gserviceaccount.com"
-        
-        if ! gcloud iam service-accounts describe "${SA_EMAIL}" --project="${PROJECT_ID}" &> /dev/null; then
-          gcloud iam service-accounts create eas-validator-sa \
-            --display-name="EAS Validator Service Account" \
-            --description="Service account for EAS validator Cloud Run service" \
-            --project="${PROJECT_ID}"
-          
-          # Grant necessary permissions
-          gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
-            --member="serviceAccount:${SA_EMAIL}" \
-            --role="roles/secretmanager.secretAccessor"
-        fi
 
     - name: Create BWS secrets in Secret Manager
       run: |

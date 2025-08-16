@@ -35,7 +35,7 @@ spec:
     spec:
       containerConcurrency: 100
       timeoutSeconds: 300
-      serviceAccountName: eas-validator-sa@PROJECT_ID.iam.gserviceaccount.com
+      serviceAccountName: cicd-github@PROJECT_ID.iam.gserviceaccount.com
       containers:
       - image: gcr.io/PROJECT_ID/eas-validator:latest
         ports:
