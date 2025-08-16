@@ -12,6 +12,8 @@ RUN wget -O bws-source.tar.gz https://github.com/bitwarden/sdk-sm/archive/refs/t
     tar -xzf bws-source.tar.gz
 WORKDIR sdk-sm-bws-v1.0.0/crates/bws
 RUN cargo build --release
+RUN ls -la target/release/
+RUN find . -name "bws" -type f
 RUN cp target/release/bws /usr/local/bin/
 WORKDIR /
 RUN rm -rf sdk-sm-bws-v1.0.0 bws-source.tar.gz
