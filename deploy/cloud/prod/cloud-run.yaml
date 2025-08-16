@@ -55,15 +55,9 @@ spec:
         - name: CONCERN
           value: "DEPLOY"
         - name: BWS_ACCESS_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: bws-access-token
-              key: latest
+          value: "BWS_ACCESS_TOKEN_PLACEHOLDER"
         - name: BWS_PROJECT_ID
-          valueFrom:
-            secretKeyRef:
-              name: bws-project-id
-              key: latest
+          value: "BWS_PROJECT_ID_PLACEHOLDER"
         resources:
           limits:
             cpu: "1"

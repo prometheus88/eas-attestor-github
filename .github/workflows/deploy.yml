@@ -85,21 +85,6 @@ jobs:
                               --project=${PROJECT_ID}
 
 
-    - name: Create BWS secrets in Secret Manager
-      run: |
-        # Create BWS access token secret if it doesn't exist
-        if ! gcloud secrets describe bws-access-token --project="${PROJECT_ID}" &> /dev/null; then
-          echo -n "${{ env.BWS_ACCESS_TOKEN }}" | gcloud secrets create bws-access-token \
-            --data-file=- \
-            --project="${PROJECT_ID}"
-        fi
-        
-        # Create BWS project ID secret if it doesn't exist
-        if ! gcloud secrets describe bws-project-id --project="${PROJECT_ID}" &> /dev/null; then
-          echo -n "${{ env.BWS_PROJECT_ID }}" | gcloud secrets create bws-project-id \
-            --data-file=- \
-            --project="${PROJECT_ID}"
-        fi
 
     - name: Build Docker image
       run: |
@@ -136,6 +121,8 @@ jobs:
         sed -i "s/PROJECT_ID/${PROJECT_ID}/g" cloud-run-deploy.yaml
         sed -i "s/SERVICE_NAME/${SERVICE_NAME}/g" cloud-run-deploy.yaml
         sed -i "s|IMAGE_NAME|${IMAGE_NAME}:latest|g" cloud-run-deploy.yaml
+        sed -i "s/BWS_ACCESS_TOKEN_PLACEHOLDER/${{ env.BWS_ACCESS_TOKEN }}/g" cloud-run-deploy.yaml
+        sed -i "s/BWS_PROJECT_ID_PLACEHOLDER/${{ env.BWS_PROJECT_ID }}/g" cloud-run-deploy.yaml
         
         # Deploy the service
         gcloud run services replace cloud-run-deploy.yaml \
