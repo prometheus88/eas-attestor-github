@@ -172,14 +172,15 @@ def validate_gcp_permissions(project_id: str, service_account_key: str, env_name
                     if f'serviceAccount:{sa_email}' in members:
                         if role in ['roles/artifactregistry.writer', 'roles/artifactregistry.repoAdmin']:
                             has_artifact_writer = True
-                        elif role == 'roles/storage.admin' or role == 'roles/storage.objectAdmin':
+                        elif role in ['roles/storage.admin', 'roles/storage.objectAdmin']:
                             has_storage_admin = True
                 
                 if has_artifact_writer or has_storage_admin:
                     print("    ✅ Container Registry push permissions confirmed")
                 else:
                     print_colored("    ❌ Container Registry push permissions missing", Colors.RED)
-                    print_colored("       Add role: gcloud projects add-iam-policy-binding {} --member='serviceAccount:{}' --role='roles/artifactregistry.repoAdmin'".format(project_id, sa_email), Colors.YELLOW)
+                    print_colored("       For GCR: gcloud projects add-iam-policy-binding {} --member='serviceAccount:{}' --role='roles/storage.admin'".format(project_id, sa_email), Colors.YELLOW)
+                    print_colored("       For Artifact Registry: gcloud projects add-iam-policy-binding {} --member='serviceAccount:{}' --role='roles/artifactregistry.repoAdmin'".format(project_id, sa_email), Colors.YELLOW)
                     permission_errors += 1
                     
             except (subprocess.CalledProcessError, json.JSONDecodeError, KeyError):
@@ -233,7 +234,7 @@ def validate_gcp_permissions(project_id: str, service_account_key: str, env_name
                 return True
             else:
                 print_colored(f"    ❌ Missing {permission_errors} critical permissions", Colors.RED)
-                print_colored("    💡 Required roles: roles/run.developer, roles/secretmanager.secretAccessor, roles/iam.serviceAccountAdmin, roles/artifactregistry.repoAdmin", Colors.YELLOW)
+                print_colored("    💡 Required roles: roles/run.developer, roles/secretmanager.secretAccessor, roles/iam.serviceAccountAdmin, roles/storage.admin", Colors.YELLOW)
                 return False
                 
         finally:

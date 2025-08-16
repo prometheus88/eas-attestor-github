@@ -75,7 +75,10 @@ jobs:
         gcloud auth activate-service-account --key-file=/tmp/gcp-key.json
 
     - name: Configure Docker to use gcloud as credential helper
-      run: gcloud auth configure-docker
+      run: |
+        gcloud auth configure-docker
+        # Also configure for newer artifact registry format
+        gcloud auth configure-docker gcr.io
 
     - name: Enable required APIs
       run: |
