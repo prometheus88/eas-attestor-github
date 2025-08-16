@@ -59,13 +59,13 @@ jobs:
           ENV_NAME="STAGING"
         fi
         
-        # Use taskfile to resolve secrets with 5D pattern
-        PROJECT_ID=$(NETWORK=CLOUD ENVIRONMENT=$ENV_NAME SERVICE=VALIDATOR task secrets:resolve SECRET_ITEM=GCP_PROJECT_ID)
+        # Use taskfile to resolve secrets with 5D pattern, explicitly passing BWS credentials
+        PROJECT_ID=$(BWS_ACCESS_TOKEN="${{ env.BWS_ACCESS_TOKEN }}" BWS_PROJECT_ID="${{ env.BWS_PROJECT_ID }}" NETWORK=CLOUD ENVIRONMENT=$ENV_NAME SERVICE=VALIDATOR task secrets:resolve SECRET_ITEM=GCP_PROJECT_ID)
         echo "PROJECT_ID=${PROJECT_ID}" >> $GITHUB_ENV
         echo "IMAGE_NAME=gcr.io/${PROJECT_ID}/${{ env.SERVICE_NAME }}" >> $GITHUB_ENV
         
         # Get GCP service account key using taskfile and save to file
-        NETWORK=CLOUD ENVIRONMENT=$ENV_NAME SERVICE=VALIDATOR task secrets:resolve SECRET_ITEM=GCP_SERVICE_ACCOUNT_KEY > /tmp/gcp-key.json
+        BWS_ACCESS_TOKEN="${{ env.BWS_ACCESS_TOKEN }}" BWS_PROJECT_ID="${{ env.BWS_PROJECT_ID }}" NETWORK=CLOUD ENVIRONMENT=$ENV_NAME SERVICE=VALIDATOR task secrets:resolve SECRET_ITEM=GCP_SERVICE_ACCOUNT_KEY > /tmp/gcp-key.json
 
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v2
