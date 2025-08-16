@@ -8,7 +8,6 @@ metadata:
     env: prod
   annotations:
     run.googleapis.com/ingress: all
-    run.googleapis.com/execution-environment: gen2
 spec:
   template:
     metadata:
