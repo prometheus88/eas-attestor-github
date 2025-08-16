@@ -133,12 +133,19 @@ jobs:
           --region="${REGION}" \
           --project="${PROJECT_ID}"
         
-        # Allow unauthenticated invocations
-        gcloud run services add-iam-policy-binding "${SERVICE_NAME}" \
+        # Allow unauthenticated invocations (if we have permission)
+        if gcloud run services add-iam-policy-binding "${SERVICE_NAME}" \
           --region="${REGION}" \
           --project="${PROJECT_ID}" \
           --member="allUsers" \
-          --role="roles/run.invoker"
+          --role="roles/run.invoker" 2>/dev/null; then
+          echo "✅ Enabled unauthenticated access"
+        else
+          echo "⚠️  Could not enable unauthenticated access - manual setup required:"
+          echo "   gcloud run services add-iam-policy-binding ${SERVICE_NAME} \\"
+          echo "     --region=${REGION} --project=${PROJECT_ID} \\"
+          echo "     --member=allUsers --role=roles/run.invoker"
+        fi
 
     - name: Get service URL
       id: get-url
