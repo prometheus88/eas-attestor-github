@@ -152,22 +152,55 @@ def validate_gcp_permissions(project_id: str, service_account_key: str, env_name
             except subprocess.CalledProcessError:
                 print_colored("    ⚠️  Container Registry access limited (may work for push)", Colors.YELLOW)
             
-            # Test IAM access
+            # Test IAM access for listing
             try:
                 subprocess.run(
                     ['gcloud', 'iam', 'service-accounts', 'list', '--project', project_id, '--limit', '1', '--quiet'],
                     check=True, capture_output=True
                 )
-                print("    ✅ IAM service account access confirmed")
+                print("    ✅ IAM service account listing confirmed")
             except subprocess.CalledProcessError:
-                print_colored("    ⚠️  IAM service account access limited", Colors.YELLOW)
+                print_colored("    ⚠️  IAM service account listing access limited", Colors.YELLOW)
+            
+            # Test IAM service account creation permissions (dry run)
+            test_sa_name = "test-deploy-permissions-check"
+            test_sa_email = f"{test_sa_name}@{project_id}.iam.gserviceaccount.com"
+            try:
+                # Check if test service account already exists
+                describe_result = subprocess.run(
+                    ['gcloud', 'iam', 'service-accounts', 'describe', test_sa_email, '--project', project_id, '--quiet'],
+                    capture_output=True, text=True
+                )
+                if describe_result.returncode == 0:
+                    print("    ✅ IAM service account creation permissions confirmed (test SA exists)")
+                else:
+                    # Try to create test service account to check permissions
+                    create_result = subprocess.run(
+                        ['gcloud', 'iam', 'service-accounts', 'create', test_sa_name, 
+                         '--display-name=Test Deploy Permissions', '--project', project_id, '--quiet'],
+                        capture_output=True, text=True
+                    )
+                    if create_result.returncode == 0:
+                        print("    ✅ IAM service account creation permissions confirmed")
+                        # Clean up test service account
+                        subprocess.run(
+                            ['gcloud', 'iam', 'service-accounts', 'delete', test_sa_email, 
+                             '--project', project_id, '--quiet'],
+                            capture_output=True
+                        )
+                    else:
+                        print_colored("    ❌ IAM service account creation permission denied", Colors.RED)
+                        print_colored("    💡 Required role: roles/iam.serviceAccountAdmin", Colors.YELLOW)
+                        permission_errors += 1
+            except Exception:
+                print_colored("    ⚠️  Could not test IAM service account creation permissions", Colors.YELLOW)
             
             if permission_errors == 0:
                 print_colored("    ✅ All critical permissions verified", Colors.GREEN)
                 return True
             else:
                 print_colored(f"    ❌ Missing {permission_errors} critical permissions", Colors.RED)
-                print_colored("    💡 Required roles: roles/run.developer, roles/secretmanager.secretAccessor", Colors.YELLOW)
+                print_colored("    💡 Required roles: roles/run.developer, roles/secretmanager.secretAccessor, roles/iam.serviceAccountAdmin", Colors.YELLOW)
                 return False
                 
         finally:
@@ -292,6 +325,10 @@ def main():
             print("   gcloud projects add-iam-policy-binding PROJECT_ID \\")
             print("     --member='serviceAccount:SERVICE_ACCOUNT_EMAIL' \\")
             print("     --role='roles/secretmanager.secretAccessor'")
+            print()
+            print("   gcloud projects add-iam-policy-binding PROJECT_ID \\")
+            print("     --member='serviceAccount:SERVICE_ACCOUNT_EMAIL' \\")
+            print("     --role='roles/iam.serviceAccountAdmin'")
             print()
             print("3. Re-run doctor: task app:doctor:cloud-secrets")
             print()
