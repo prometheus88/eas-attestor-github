@@ -131,6 +131,19 @@ def validate_gcp_permissions(project_id: str, service_account_key: str, env_name
                 print_colored("    ❌ Cloud Run access denied", Colors.RED)
                 permission_errors += 1
             
+            # Test Service Account impersonation permissions
+            try:
+                sa_email = sa_data.get('client_email', '')
+                test_result = subprocess.run(
+                    ['gcloud', 'iam', 'service-accounts', 'get-iam-policy', sa_email, '--project', project_id, '--quiet'],
+                    check=True, capture_output=True, text=True
+                )
+                print("    ✅ Service Account impersonation permissions confirmed")
+            except subprocess.CalledProcessError:
+                print_colored("    ❌ Service Account impersonation permissions missing", Colors.RED)
+                print_colored("       Add role: gcloud projects add-iam-policy-binding {} --member='serviceAccount:{}' --role='roles/iam.serviceAccountUser'".format(project_id, sa_email), Colors.YELLOW)
+                permission_errors += 1
+            
             # Test Secret Manager access
             try:
                 subprocess.run(
@@ -234,7 +247,7 @@ def validate_gcp_permissions(project_id: str, service_account_key: str, env_name
                 return True
             else:
                 print_colored(f"    ❌ Missing {permission_errors} critical permissions", Colors.RED)
-                print_colored("    💡 Required roles: roles/run.developer, roles/secretmanager.secretAccessor, roles/iam.serviceAccountAdmin, roles/storage.admin", Colors.YELLOW)
+                print_colored("    💡 Required roles: roles/run.developer, roles/secretmanager.secretAccessor, roles/iam.serviceAccountAdmin, roles/storage.admin, roles/iam.serviceAccountUser", Colors.YELLOW)
                 return False
                 
         finally:
