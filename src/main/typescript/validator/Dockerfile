@@ -10,9 +10,8 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 # Build BWS from source for correct architecture
 RUN wget -O bws-source.tar.gz https://github.com/bitwarden/sdk-sm/archive/refs/tags/bws-v1.0.0.tar.gz && \
     tar -xzf bws-source.tar.gz
-WORKDIR sdk-sm-bws-v1.0.0/crates/bws
-RUN cargo build --release
-RUN ls -la target/release/
+WORKDIR sdk-sm-bws-v1.0.0
+RUN cargo build --release --bin bws
 RUN find . -name "bws" -type f
 RUN cp target/release/bws /usr/local/bin/
 WORKDIR /
