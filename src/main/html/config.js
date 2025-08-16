@@ -1,4 +1,5 @@
 // Configuration for the EAS Attestor application
+// BUILD_TIME_CONFIG_INJECTION
 window.EAS_CONFIG = {
     // GitHub URLs
     github: {
@@ -47,7 +48,7 @@ window.EAS_CONFIG = {
         validator: {
             local: 'http://localhost:8080',
             getEndpoint: function() {
-                // Check for environment-specific override
+                // Check for environment-specific override (set via build/deployment)
                 if (window.EAS_VALIDATOR_URL) {
                     return window.EAS_VALIDATOR_URL;
                 }
@@ -57,11 +58,10 @@ window.EAS_CONFIG = {
                     return this.local;
                 }
                 
-                // For production, try to auto-detect from current domain
-                // This works when the frontend and validator are served from the same domain
-                const protocol = window.location.protocol;
-                const host = window.location.host;
-                return `${protocol}//${host.replace('-frontend', '')}/api/validator`;
+                // For production deployments, the validator URL should be provided
+                // via build-time environment variables or deployment configuration
+                console.warn('No validator endpoint configured. Set window.EAS_VALIDATOR_URL or configure deployment.');
+                return null;
             }
         }
     }

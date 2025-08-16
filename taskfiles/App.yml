@@ -32,6 +32,15 @@ tasks:
     cmds:
       - mkdir -p {{.HTML_DIST_DIR}}
       - cp -r src/main/html/* {{.HTML_DIST_DIR}}/
+      - |
+        # Inject build-time environment variables
+        if [ -n "$EAS_VALIDATOR_URL" ]; then
+          echo "🔧 Injecting validator URL: $EAS_VALIDATOR_URL"
+          sed -i.bak "s|// BUILD_TIME_CONFIG_INJECTION|window.EAS_VALIDATOR_URL = '$EAS_VALIDATOR_URL';|g" {{.HTML_DIST_DIR}}/config.js
+          rm {{.HTML_DIST_DIR}}/config.js.bak 2>/dev/null || true
+        else
+          echo "⚠️  No EAS_VALIDATOR_URL set - using dynamic detection"
+        fi
     deps: []
     sources:
       - src/main/html/**/*

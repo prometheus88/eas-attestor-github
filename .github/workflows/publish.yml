@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'src/html/**'
+      - 'src/main/html/**'
   workflow_dispatch:
 
 jobs:
@@ -32,8 +32,30 @@ jobs:
       - name: Setup dependencies
         run: npm install
 
+      - name: Install BWS CLI
+        run: |
+          wget -O bws.zip "https://github.com/bitwarden/sdk-sm/releases/download/bws-v1.0.0/bws-x86_64-unknown-linux-gnu-1.0.0.zip"
+          unzip bws.zip
+          sudo chmod +x bws
+          sudo mv bws /usr/local/bin/
+          rm bws.zip
+
       - name: Build site
-        run: task build
+        env:
+          BWS_ACCESS_TOKEN: ${{ secrets.BWS_ACCESS_TOKEN }}
+          BWS_PROJECT_ID: ${{ secrets.BWS_PROJECT_ID }}
+        run: |
+          # Get validator URL from BWS using 5D pattern
+          EAS_VALIDATOR_URL=$(BWS_ACCESS_TOKEN="${BWS_ACCESS_TOKEN}" BWS_PROJECT_ID="${BWS_PROJECT_ID}" NETWORK=CLOUD ENVIRONMENT=PROD SERVICE=VALIDATOR task secrets:resolve SECRET_ITEM=VALIDATOR_URL 2>/dev/null || echo "")
+          
+          if [ -z "$EAS_VALIDATOR_URL" ]; then
+            echo "⚠️  No validator URL found in BWS, using default endpoint discovery"
+          else
+            echo "🔧 Using validator URL from BWS: $EAS_VALIDATOR_URL"
+            export EAS_VALIDATOR_URL
+          fi
+          
+          task build
           
       - name: Setup Pages
         uses: actions/configure-pages@v5
