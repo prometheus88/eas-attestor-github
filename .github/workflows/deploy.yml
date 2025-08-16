@@ -29,6 +29,11 @@ jobs:
       with:
         submodules: recursive
 
+    - name: Install Task
+      uses: arduino/setup-task@v1
+      with:
+        version: 3.x
+
     - name: Install BWS CLI
       run: |
         # Install BWS CLI using pre-built binary for Linux x86_64
