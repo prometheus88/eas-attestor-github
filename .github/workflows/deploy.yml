@@ -132,6 +132,13 @@ jobs:
         gcloud run services replace cloud-run-deploy.yaml \
           --region="${REGION}" \
           --project="${PROJECT_ID}"
+        
+        # Allow unauthenticated invocations
+        gcloud run services add-iam-policy-binding "${SERVICE_NAME}" \
+          --region="${REGION}" \
+          --project="${PROJECT_ID}" \
+          --member="allUsers" \
+          --role="roles/run.invoker"
 
     - name: Get service URL
       id: get-url
