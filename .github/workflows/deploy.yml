@@ -50,18 +50,20 @@ jobs:
         # Determine environment from explicit input only
         if [ "${{ github.event.inputs.environment }}" = "prod" ]; then
           echo "ENVIRONMENT=prod" >> $GITHUB_ENV
-          echo "SERVICE_NAME=eas-validator-prod" >> $GITHUB_ENV
+          SERVICE_NAME="eas-validator-prod"
+          echo "SERVICE_NAME=${SERVICE_NAME}" >> $GITHUB_ENV
           ENV_NAME="PROD"
         else
           echo "ENVIRONMENT=staging" >> $GITHUB_ENV
-          echo "SERVICE_NAME=eas-validator-staging" >> $GITHUB_ENV
+          SERVICE_NAME="eas-validator-staging"
+          echo "SERVICE_NAME=${SERVICE_NAME}" >> $GITHUB_ENV
           ENV_NAME="STAGING"
         fi
         
         # Use taskfile to resolve secrets with 5D pattern, explicitly passing BWS credentials
         PROJECT_ID=$(BWS_ACCESS_TOKEN="${{ env.BWS_ACCESS_TOKEN }}" BWS_PROJECT_ID="${{ env.BWS_PROJECT_ID }}" NETWORK=CLOUD ENVIRONMENT=$ENV_NAME SERVICE=VALIDATOR task secrets:resolve SECRET_ITEM=GCP_PROJECT_ID)
         echo "PROJECT_ID=${PROJECT_ID}" >> $GITHUB_ENV
-        echo "IMAGE_NAME=gcr.io/${PROJECT_ID}/${{ env.SERVICE_NAME }}" >> $GITHUB_ENV
+        echo "IMAGE_NAME=gcr.io/${PROJECT_ID}/${SERVICE_NAME}" >> $GITHUB_ENV
         
         # Get GCP service account key using taskfile and save to file
         BWS_ACCESS_TOKEN="${{ env.BWS_ACCESS_TOKEN }}" BWS_PROJECT_ID="${{ env.BWS_PROJECT_ID }}" NETWORK=CLOUD ENVIRONMENT=$ENV_NAME SERVICE=VALIDATOR task secrets:resolve SECRET_ITEM=GCP_SERVICE_ACCOUNT_KEY > /tmp/gcp-key.json
