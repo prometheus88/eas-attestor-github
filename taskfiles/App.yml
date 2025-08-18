@@ -4,7 +4,6 @@ version: '3'
 vars:
   BUILD_DIR: build
   HTML_DIST_DIR: "{{.BUILD_DIR}}/html/dist"
-  HTML_DOCS_DIR: "{{.BUILD_DIR}}/html/docs"
   VALIDATOR_SRC_DIR: "src/main/typescript/validator"
   VALIDATOR_BUILD_DIR: "{{.BUILD_DIR}}/typescript/validator"
 
@@ -14,17 +13,6 @@ tasks:
     desc: Build all application components (dApp and validator)
     deps: [build:dist, build:validator]
 
-  build:docs:
-    desc: Generate contract documentation
-    cmds:
-      - forge doc --build
-      - mkdir -p {{.HTML_DOCS_DIR}}
-      - rm -rf {{.HTML_DOCS_DIR}}/*
-      - cp -r docs/book/* {{.HTML_DOCS_DIR}}/ || echo "No docs generated yet"
-    sources:
-      - src/main/solidity/**/*.sol
-    generates:
-      - "{{.HTML_DOCS_DIR}}/**/*"
 
   build:dist:
     desc: Build dApp for deployment
@@ -69,28 +57,6 @@ tasks:
     cmds:
       - npm test
 
-  # Deployment tasks (using Foundry)
-  deploy:sepolia:
-    desc: Deploy to Base Sepolia
-    cmds:
-      - echo "Deploying to Base Sepolia..."
-      - forge script script/Deploy.s.sol --rpc-url $BASE_SEPOLIA_RPC_URL --broadcast --verify
-    preconditions:
-      - sh: '[ -n "$DEPLOY_PRIVATE_KEY" ]'
-        msg: "DEPLOY_PRIVATE_KEY environment variable is required"
-      - sh: '[ -n "$BASE_SEPOLIA_RPC_URL" ]'
-        msg: "BASE_SEPOLIA_RPC_URL environment variable is required"
-
-  deploy:mainnet:
-    desc: Deploy to Base mainnet
-    cmds:
-      - echo "Deploying to Base mainnet..."
-      - forge script script/Deploy.s.sol --rpc-url $BASE_MAINNET_RPC_URL --broadcast --verify
-    preconditions:
-      - sh: '[ -n "$DEPLOY_PRIVATE_KEY" ]'
-        msg: "DEPLOY_PRIVATE_KEY environment variable is required"
-      - sh: '[ -n "$BASE_MAINNET_RPC_URL" ]'
-        msg: "BASE_MAINNET_RPC_URL environment variable is required"
 
   # Development tasks
   dev:
@@ -244,22 +210,15 @@ tasks:
     desc: Clean build artifacts
     cmds:
       - rm -rf {{.BUILD_DIR}}
-      - forge clean
-      - rm -rf docs/book
 
   # Health check tasks
   doctor:
     desc: Application-specific health checks
     cmds:
       - echo "🏥 Running EAS Attestor for Github health checks..."
-      - cmd: forge --version
-        silent: true
-      - echo "✅ Foundry is installed"
       - cmd: node --version
         silent: true
       - echo "✅ Node.js is available"
-      - cmd: test -f foundry.toml
-      - echo "✅ Foundry configuration found"
       - cmd: test -d src/main/html
       - echo "✅ dApp source directory exists"
       - cmd: test -d src/main/typescript/validator
@@ -271,49 +230,20 @@ tasks:
       - echo ""
       - echo "🔐 Checking secret management configuration..."
       - task: :secrets:doctor
-      - task: app:doctor:cloud-secrets
       - echo "🎉 All application health checks passed!"
 
-  doctor:cloud-secrets:
-    desc: Check cloud deployment secrets in BWS
-    cmds:
-      - echo "☁️  Checking cloud deployment secrets..."
-      - python3 ./scripts/task/app/doctor-cloud-secrets.py
 
   # Setup tasks
   setup:
     desc: Setup application development environment
     cmds:
       - echo "🚀 Setting up EAS Attestor for Github..."
-      - forge install
       - npm install
-      - mkdir -p {{.BUILD_DIR}} {{.HTML_DIST_DIR}} {{.HTML_DOCS_DIR}} {{.VALIDATOR_BUILD_DIR}} deployments state
+      - mkdir -p {{.BUILD_DIR}} {{.HTML_DIST_DIR}} {{.VALIDATOR_BUILD_DIR}} deployments state
       - task app:validator:install
       - task build
       - echo "✅ Application setup complete!"
 
-  # Environment-specific configurations
-  check-env:sepolia:
-    desc: Check Base Sepolia environment configuration
-    cmds:
-      - echo "Checking Base Sepolia environment..."
-      - cmd: '[ -n "$BASE_SEPOLIA_RPC_URL" ]'
-        silent: true
-      - echo "✅ Base Sepolia RPC URL configured"
-      - cmd: '[ -n "$BASESCAN_SEPOLIA_API_KEY" ]'
-        silent: true
-      - echo "✅ Basescan Sepolia API key configured"
-
-  check-env:mainnet:
-    desc: Check Base mainnet environment configuration
-    cmds:
-      - echo "Checking Base mainnet environment..."
-      - cmd: '[ -n "$BASE_MAINNET_RPC_URL" ]'
-        silent: true
-      - echo "✅ Base mainnet RPC URL configured"
-      - cmd: '[ -n "$BASESCAN_API_KEY" ]'
-        silent: true
-      - echo "✅ Basescan API key configured"
 
   # Kubernetes deployment tasks
   k8s:deploy:staging:
