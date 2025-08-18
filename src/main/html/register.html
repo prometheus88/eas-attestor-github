@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EAS Attestor for Github</title>
+    <script src="./config.js"></script>
     <script src="https://unpkg.com/ethers@6.13.4/dist/ethers.umd.min.js"></script>
     <script type="module">
         // Load EAS SDK from ESM.sh (the working CDN)
@@ -365,7 +366,7 @@
                     <button class="copy-button hidden" id="copyJson" onclick="copyJson()">📋 Copy JSON</button>
                     <div class="input-group">
                         <label for="gistUrl">Paste your Gist URL here:</label>
-                        <input type="text" id="gistUrl" placeholder="https://gist.github.com/username/..." />
+                        <input type="text" id="gistUrl" placeholder="Paste your Gist URL here..." />
                     </div>
                     <button id="validateGist" onclick="validateGist()" disabled>Validate (30-120s)</button>
                     <div id="validationStatus"></div>
@@ -426,7 +427,7 @@
 
         // Schema for validated domain identifier to Ethereum address attestation
         // Schema: "string domain,string identifier,string proofUrl,bytes validationSig,uint256 validatedAt,address validator"  
-        // domain = "github.com", identifier = github username, proofUrl = gist URL
+        // domain = window.EAS_CONFIG.github.domain, identifier = github username, proofUrl = gist URL
         // validationSig = GitHub Actions validation signature, validatedAt = timestamp, validator = trusted validator address
         const ATTESTATION_SCHEMA_UID = "0xe5daad34f7c6c87eb60d2d32bde166ff4b87c8d165a95af58a93e774fc28c96e" // Base Sepolia (new schema)
 
@@ -625,7 +626,7 @@
         function isValidGistUrl(url) {
             try {
                 const urlObj = new URL(url);
-                return urlObj.hostname === 'gist.github.com' && urlObj.pathname.includes('/');
+                return urlObj.hostname === new URL(window.EAS_CONFIG.github.gistUrl).hostname && urlObj.pathname.includes('/');
             } catch {
                 return false;
             }
@@ -633,8 +634,11 @@
 
         async function requestValidation(githubUsername, gistUrl, ethereumAddress) {
             try {
+                // Get the appropriate validator endpoint
+                const validatorUrl = window.EAS_CONFIG.api.validator.getEndpoint();
+                
                 // Call the validator service
-                const response = await fetch('http://localhost:6001/validate', {
+                const response = await fetch(`${validatorUrl}/validate`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -916,7 +920,7 @@
                 // Encode the attestation data with validation fields
                 const schemaEncoder = new window.SchemaEncoder("string domain,string identifier,string proofUrl,bytes validationSig,uint256 validatedAt,address validator");
                 const encodedData = schemaEncoder.encodeData([
-                    { name: "domain", value: "github.com", type: "string" },
+                    { name: "domain", value: window.EAS_CONFIG.github.domain, type: "string" },
                     { name: "identifier", value: githubUsername, type: "string" },
                     { name: "proofUrl", value: gistUrl, type: "string" },
                     { name: "validationSig", value: validationSig, type: "bytes" },
@@ -950,7 +954,7 @@
                     <div class="status success">
                         <strong>✅ Attestation Confirmed!</strong><br>
                         Transaction: <code>${receipt.transactionHash}</code><br>
-                        <small>Identity ${githubUsername}@github.com attested to ${walletAddress}</small>
+                        <small>Identity ${githubUsername}@${window.EAS_CONFIG.github.domain} attested to ${walletAddress}</small>
                     </div>
                 `;
 
@@ -990,6 +994,11 @@
 
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', () => {
+            // Set dynamic source code link
+            document.getElementById('sourceCodeLink').href = window.EAS_CONFIG.project.repository;
+            
+            // Set dynamic gist URL placeholder
+            document.getElementById('gistUrl').placeholder = `${window.EAS_CONFIG.github.gistUrl}/username/...`;
             
             // Check if wallet is already connected
             if (typeof window.ethereum !== 'undefined') {

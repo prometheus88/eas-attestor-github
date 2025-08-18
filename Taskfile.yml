@@ -1,30 +1,11 @@
 version: '3'
 
-# Contributor Attestation Service - Modular Taskfile
-# Based on allenday/taskfile-repo-template with application-specific extensions
+# Load environment variables from .env file
+dotenv: ['.env']
 
+# Modular Taskfile - Core functionality with optional extensions
 includes:
-  # Core repository health and CI tasks (always included)
-  core:
-    taskfile: ./taskfiles/Core.yml
-    dir: .
   
-  # Language and technology-specific extensions
-  typescript:
-    taskfile: ./taskfiles/Typescript.yml
-    optional: true
-    aliases: [ts]
-  
-  solidity:
-    taskfile: ./taskfiles/Solidity.yml
-    optional: true
-    aliases: [sol]
-  
-  # Container orchestration (optional)
-  container:
-    taskfile: ./taskfiles/Container.yml
-    optional: true
-    aliases: [docker]
   
   # Secret management
   secrets:
@@ -32,10 +13,10 @@ includes:
     optional: true
     aliases: [bws]
   
-  # Application-specific tasks (our custom logic)
+  # Application-specific tasks
   app:
     taskfile: ./taskfiles/App.yml
-    aliases: [attestation]
+    aliases: [eas, attestation]
 
 vars:
   REPO_OWNER:
@@ -44,22 +25,21 @@ vars:
     sh: ./scripts/task/__taskfile__/detect-repo.sh | grep REPO_NAME | cut -d= -f2
   SCORECARD_RESULTS: scorecard-results.json
   
-  # Application-specific configuration
-  BUILD_DIR: build
-  DIST_DIR: "{{.BUILD_DIR}}/dist"
-  SITE_DIR: "{{.BUILD_DIR}}/site"
-  DOCS_DIR: "{{.BUILD_DIR}}/docs"
-  
-  # Environment configuration
+  # 5-dimensional resource configuration
+  # Pattern: ${CONCERN}_${NETWORK}_${ENVIRONMENT}_${COMPONENT}_${RESOURCE}
+  CONCERNS:
+    - deploy
+    - chain  
+    - api
   NETWORKS:
-    - internal
-    - public
+    - local
+    - cloud
   ENVIRONMENTS:
     - dev
-    - sepolia    # Base Sepolia testnet
-    - mainnet    # Base mainnet
-  SERVICES:
-    - attestation
+    - staging
+    - prod
+  COMPONENTS:
+    - validator
     - dapp
 
 tasks:
@@ -68,11 +48,16 @@ tasks:
     cmds:
       - task --list
 
-  # Core delegation tasks
+  # Delegate core tasks to the core module
   ci:
-    desc: Run CI pipeline locally
+    desc: Run CI pipeline locally with act
     cmds:
       - task core:ci
+
+  app-ci:
+    desc: Test application workflow locally with act
+    cmds:
+      - task container:ci-test
 
   scorecard:
     desc: Run OSSF Scorecard security analysis
@@ -89,97 +74,48 @@ tasks:
     cmds:
       - task core:init
 
-  # Application-specific convenience tasks (delegate to appropriate modules)
-  build:
-    desc: Build all application components
-    cmds:
-      - task solidity:build
-      - task app:build:docs
-      - task app:build:dist
-
-  test:
-    desc: Run all tests (Solidity + Python)
-    cmds:
-      - task solidity:test
-      - task python:test || echo "Python tests not available yet"
-
-  deploy:
-    desc: Deploy to specified network (ENV=sepolia|mainnet)
-    cmds:
-      - task app:deploy:{{.ENV | default "sepolia"}}
-
-  dev:
-    desc: Start complete development environment (Anvil + dApp server)
-    cmds:
-      - task app:dev
-
-  serve:
-    desc: Serve the built dApp locally at http://localhost:3000
-    cmds:
-      - task app:serve
-
-  dev:stop:
-    desc: Stop all development services
-    cmds:
-      - task app:dev:stop
-
-  # Composite setup task
+  # Composite tasks that work across modules
   setup:
-    desc: Setup complete development environment
+    desc: Setup complete development environment (core + detected languages)
     cmds:
       - task core:setup
       - ./scripts/task/__taskfile__/setup-languages.sh
+      - ./scripts/task/__taskfile__/setup-protobuf.sh
       - ./scripts/task/__taskfile__/setup-container.sh
-      - task app:setup
-      - echo "✅ Complete development environment setup completed"
+      - echo "Development environment setup completed"
 
-  # Enhanced testing
-  test-all:
-    desc: Run comprehensive tests (core + application)
+  test:
+    desc: Run all available tests (core + language-specific)
     cmds:
       - ./scripts/task/__taskfile__/run-tests.sh
-      - task app:test:contracts
-      - task app:test:coverage
 
-  # Enhanced linting
   lint:
-    desc: Run all linting tools
+    desc: Run all linting tools (core + language-specific)
     cmds:
       - ./scripts/task/__taskfile__/run-linting.sh
-      - task app:format:solidity
 
-  # Enhanced formatting
   format:
-    desc: Format all code
+    desc: Format all code (language-specific formatters)
     cmds:
       - ./scripts/task/__taskfile__/format-code.sh
-      - task app:format:solidity
 
-  # Enhanced cleaning
   clean:
-    desc: Clean all build artifacts
+    desc: Clean all build artifacts and generated files
     cmds:
       - ./scripts/task/__taskfile__/clean-artifacts.sh {{.SCORECARD_RESULTS}}
-      - task app:clean
 
-  # Application-specific health checks
+  # Health check that includes all modules
   check:
-    desc: Run comprehensive health checks
+    silent: true
+    desc: Run comprehensive checks (core health + language-specific)
     cmds:
       - task core:check-tools
-      - task app:doctor
+      - task core:scorecard-local
       - ./scripts/task/__taskfile__/run-checks.sh
 
-  doctor:
-    desc: Complete repository and application health check
-    cmds:
-      - ./scripts/task/__taskfile__/run-doctor.sh
-      - task solidity:doctor
-      - task app:doctor
-
-  # Environment management for Base networks
+  # Environment-specific tasks (multi-environment support)
   check-envs-exist:
-    desc: Check if GitHub environments exist for Base networks
+    desc: Check if GitHub environments exist
     silent: true
     run: when_changed
     sources:
@@ -200,57 +136,71 @@ tasks:
     cmds:
       - ./scripts/task/__taskfile__/check-secrets-wrapper.sh {{range .NETWORKS}}{{$network := .}}{{range $.ENVIRONMENTS}}{{$network}}-{{.}} {{end}}{{end}}
 
-  # Base network specific deployment
-  deploy-sepolia:
-    desc: Deploy to Base Sepolia network
+  # Comprehensive health check with modular support
+  doctor:
+    desc: Complete repository health check (core + language-specific)
     cmds:
-      - task app:deploy:sepolia
+      - ./scripts/task/__taskfile__/run-doctor.sh
 
-  deploy-mainnet:
-    desc: Deploy to Base mainnet (production)
+  # Multi-environment deployment and setup tasks
+  deploy:
+    desc: Deploy application (ENV=dev|staging|prod NETWORK=internal|public SERVICE=api)
     cmds:
-      - task app:deploy:mainnet
+      - ./scripts/task/__taskfile__/deploy.sh {{.ENV | default "dev"}} {{.NETWORK | default "internal"}} {{.SERVICE | default "api"}}
 
-  # Attestation processing
-  attest:
-    desc: Run attestation processing job
+  deploy-all:
+    desc: Deploy to all environments
     cmds:
-      - task app:attest
+      - ./scripts/task/deploy-all.sh
 
-  # Multi-environment setup
   setup-repo:
-    desc: Bootstrap repository for Base networks
+    desc: Bootstrap repository setup
     cmds:
-      - echo "Setting up Contributor Attestation Service repository..."
-      - ./scripts/task/__taskfile__/setup-secrets.sh {{.ENV | default "sepolia"}} {{.NETWORK | default "public"}} {{.SERVICE | default "attestation"}}
-      - ./scripts/task/__taskfile__/setup-environments.sh {{.ENV | default "sepolia"}} {{.NETWORK | default "public"}}
+      - echo "Setting up repository..."
+      - ./scripts/task/__taskfile__/setup-secrets.sh {{.ENV | default "dev"}} {{.NETWORK | default "internal"}} {{.SERVICE | default "api"}}
+      - ./scripts/task/__taskfile__/setup-environments.sh {{.ENV | default "dev"}} {{.NETWORK | default "internal"}}
       - ./scripts/task/__taskfile__/setup-branch-protection.sh
-      - echo "✅ Repository setup completed"
+      - echo "Repository setup completed"
+
+  setup-all-envs:
+    desc: Setup all defined environments
+    cmds:
+      - ./scripts/task/setup-all-environments.sh
 
   list-envs:
-    desc: List all configured environments and networks
+    desc: List all defined environments
     cmds:
-      - echo "🌐 Contributor Attestation Service Environments"
-      - echo "Networks:"
+      - echo "Configured Networks:"
       - |
         {{range .NETWORKS}}
         echo "  - {{.}}"
         {{end}}
-      - echo "Environments:"
+      - echo "Configured Environments:"
       - |
         {{range .ENVIRONMENTS}}
         echo "  - {{.}}"
         {{end}}
-      - echo "Services:"
+      - echo "Configured Components:"
       - |
-        {{range .SERVICES}}
+        {{range .COMPONENTS}}
         echo "  - {{.}}"
         {{end}}
-      - echo "Environment Combinations:"
+      - echo "Configured Concerns:"
       - |
-        {{range .NETWORKS}}
+        {{range .CONCERNS}}
+        echo "  - {{.}}"
+        {{end}}
+      - echo "5D Resource Pattern Examples:"
+      - |
+        {{range .CONCERNS}}
+        {{$concern := .}}
+        {{range $.NETWORKS}}
         {{$network := .}}
         {{range $.ENVIRONMENTS}}
-        echo "  - {{$network}}-{{.}}"
+        {{$env := .}}
+        {{range $.COMPONENTS}}
+        echo "  - {{$concern | upper}}_{{$network | upper}}_{{$env | upper}}_{{. | upper}}_RESOURCE"
+        {{end}}
+        {{end}}
         {{end}}
         {{end}}

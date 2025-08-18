@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eas-validator
+  namespace: staging
+  labels:
+    app: eas-validator
+    environment: staging
+    network: base-sepolia
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: eas-validator
+      environment: staging
+  template:
+    metadata:
+      labels:
+        app: eas-validator
+        environment: staging
+        network: base-sepolia
+    spec:
+      containers:
+      - name: eas-validator
+        image: allenday/eas-validator:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+        envFrom:
+        - secretRef:
+            name: eas-validator-secrets
+        - secretRef:
+            name: eas-validator-config
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 6
+      restartPolicy: Always

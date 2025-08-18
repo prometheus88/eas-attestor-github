@@ -1,9 +1,7 @@
-version: '3.8'
-
 services:
   validator:
     build:
-      context: ../../build/typescript/validator
+      context: ../../../src/main/typescript/validator
       dockerfile: Dockerfile
     image: eas-validator:latest
     container_name: eas-validator
@@ -12,8 +10,9 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=5001
+      - DOCKER_ENV=true
     env_file:
-      - ../../src/main/typescript/validator/.env
+      - ../../../src/main/typescript/validator/.env
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5001/health"]

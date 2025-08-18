@@ -6,15 +6,12 @@ on:
   pull_request:
     branches: [ main ]
 
-env:
-  FOUNDRY_PROFILE: ci
-
 jobs:
   check:
     strategy:
       fail-fast: true
 
-    name: Foundry project
+    name: Validator service
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,11 +29,6 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: nightly
-
       - name: Install dependencies
         run: npm install
 
@@ -45,16 +37,9 @@ jobs:
         id: doctor
 
       - name: Run build
-        run: task build
+        run: task app:build
         id: build
 
       - name: Run tests
-        run: task test
+        run: task app:test:typescript
         id: test
-
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          files: lcov.info
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false

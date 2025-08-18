@@ -1,0 +1,223 @@
+name: Deploy to Kubernetes
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/main/typescript/validator/**'
+      - 'deploy/k8s/**'
+      - '.github/workflows/deploy-k8s.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+      image_tag:
+        description: 'Docker image tag'
+        required: false
+        default: 'latest'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: eas-validator
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+      image-tag: ${{ steps.meta.outputs.tags }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Task
+        run: |
+          sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b ~/.local/bin
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Setup dependencies
+        run: npm install
+
+      - name: Build validator
+        run: task app:build:validator
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ github.event.inputs.image_tag }},enable=${{ github.event.inputs.image_tag != '' }}
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: build/typescript/validator
+          file: src/main/typescript/validator/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-staging:
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    needs: build
+    runs-on: ubuntu-latest
+    environment: kubernetes-staging
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: Configure kubectl
+        env:
+          BWS_ACCESS_TOKEN: ${{ secrets.BWS_ACCESS_TOKEN }}
+          BWS_PROJECT_ID: ${{ secrets.BWS_PROJECT_ID }}
+        run: |
+          mkdir -p ~/.kube
+          
+          # Try to get KUBECONFIG from BWS first
+          KUBECONFIG_B64=$(BWS_ACCESS_TOKEN="${BWS_ACCESS_TOKEN}" BWS_PROJECT_ID="${BWS_PROJECT_ID}" bws secret get "37102190-b2e6-4a3f-9e4f-b33c00828d38" | jq -r .value 2>/dev/null || echo "")
+          
+          if [ -n "$KUBECONFIG_B64" ]; then
+            echo "✅ Using KUBECONFIG from BWS"
+            echo "$KUBECONFIG_B64" | base64 -d > ~/.kube/config
+          elif [ -n "${{ secrets.KUBECONFIG }}" ]; then
+            echo "⚠️ Falling back to GitHub secret KUBECONFIG"
+            echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
+          else
+            echo "❌ No KUBECONFIG found in BWS or GitHub secrets"
+            echo "Please either:"
+            echo "1. Store base64-encoded kubeconfig in BWS as CLOUD_STAGING_KUBE_CONFIG"
+            echo "2. Add KUBECONFIG secret to GitHub repository"
+            exit 1
+          fi
+          
+          kubectl config current-context
+
+      - name: Install BWS CLI
+        run: |
+          wget -O bws.zip "https://github.com/bitwarden/sdk-sm/releases/download/bws-v1.0.0/bws-x86_64-unknown-linux-gnu-1.0.0.zip"
+          unzip bws.zip
+          sudo chmod +x bws
+          sudo mv bws /usr/local/bin/
+          rm bws.zip
+
+      - name: Setup secrets
+        env:
+          BWS_ACCESS_TOKEN: ${{ secrets.BWS_ACCESS_TOKEN }}
+          BWS_PROJECT_ID: ${{ secrets.BWS_PROJECT_ID }}
+        run: |
+          chmod +x deploy/k8s/scripts/setup-secrets.sh
+          ./deploy/k8s/scripts/setup-secrets.sh -e staging
+
+      - name: Deploy to staging
+        env:
+          IMAGE_TAG: ${{ github.event.inputs.image_tag || 'latest' }}
+        run: |
+          chmod +x deploy/k8s/scripts/deploy.sh
+          ./deploy/k8s/scripts/deploy.sh -e staging -t "$IMAGE_TAG" -r "${{ env.REGISTRY }}/${{ github.repository_owner }}" --skip-build
+
+      - name: Verify deployment
+        run: |
+          kubectl rollout status deployment/eas-validator -n eas-staging --timeout=300s
+          kubectl get pods -n eas-staging
+          kubectl get svc -n eas-staging
+
+  deploy-production:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
+    needs: build
+    runs-on: ubuntu-latest
+    environment: kubernetes-production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: Configure kubectl
+        env:
+          BWS_ACCESS_TOKEN: ${{ secrets.BWS_ACCESS_TOKEN }}
+          BWS_PROJECT_ID: ${{ secrets.BWS_PROJECT_ID }}
+        run: |
+          mkdir -p ~/.kube
+          
+          # Try to get KUBECONFIG from BWS first
+          KUBECONFIG_B64=$(BWS_ACCESS_TOKEN="${BWS_ACCESS_TOKEN}" BWS_PROJECT_ID="${BWS_PROJECT_ID}" bws secret get "37102190-b2e6-4a3f-9e4f-b33c00828d38" | jq -r .value 2>/dev/null || echo "")
+          
+          if [ -n "$KUBECONFIG_B64" ]; then
+            echo "✅ Using KUBECONFIG from BWS"
+            echo "$KUBECONFIG_B64" | base64 -d > ~/.kube/config
+          elif [ -n "${{ secrets.KUBECONFIG }}" ]; then
+            echo "⚠️ Falling back to GitHub secret KUBECONFIG"
+            echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
+          else
+            echo "❌ No KUBECONFIG found in BWS or GitHub secrets"
+            echo "Please either:"
+            echo "1. Store base64-encoded kubeconfig in BWS as CLOUD_STAGING_KUBE_CONFIG"
+            echo "2. Add KUBECONFIG secret to GitHub repository"
+            exit 1
+          fi
+          
+          kubectl config current-context
+
+      - name: Install BWS CLI
+        run: |
+          wget -O bws.zip "https://github.com/bitwarden/sdk-sm/releases/download/bws-v1.0.0/bws-x86_64-unknown-linux-gnu-1.0.0.zip"
+          unzip bws.zip
+          sudo chmod +x bws
+          sudo mv bws /usr/local/bin/
+          rm bws.zip
+
+      - name: Setup secrets
+        env:
+          BWS_ACCESS_TOKEN: ${{ secrets.BWS_ACCESS_TOKEN }}
+          BWS_PROJECT_ID: ${{ secrets.BWS_PROJECT_ID }}
+        run: |
+          chmod +x deploy/k8s/scripts/setup-secrets.sh
+          ./deploy/k8s/scripts/setup-secrets.sh -e production
+
+      - name: Deploy to production
+        env:
+          IMAGE_TAG: ${{ github.event.inputs.image_tag || 'latest' }}
+        run: |
+          chmod +x deploy/k8s/scripts/deploy.sh
+          ./deploy/k8s/scripts/deploy.sh -e production -t "$IMAGE_TAG" -r "${{ env.REGISTRY }}/${{ github.repository_owner }}" --skip-build
+
+      - name: Verify deployment
+        run: |
+          kubectl rollout status deployment/eas-validator -n eas-production --timeout=300s
+          kubectl get pods -n eas-production
+          kubectl get svc -n eas-production
