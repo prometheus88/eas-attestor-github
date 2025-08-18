@@ -5,6 +5,10 @@ build/
 lib/
 docs/
 
+# Kubernetes credentials
+k3s_kubeconfig.yaml
+*.kubeconfig
+
 # Forge broadcast logs
 !/broadcast
 /broadcast/*/31337/
