@@ -1,48 +1,35 @@
-# EAS Attestor for Github
+# EAS Attestor for GitHub
 
-A comprehensive system for creating cryptographic attestations linking GitHub usernames to Ethereum addresses using EAS (Ethereum Attestation Service) on the Base network. The system includes a validator service, frontend dApp, and production-ready deployment infrastructure.
+A system for creating cryptographic attestations that link GitHub usernames to Ethereum addresses using EAS (Ethereum Attestation Service) on the Base network. The system includes a validator service, frontend dApp, and Kubernetes deployment infrastructure.
 
-## 🏗️ Architecture
+## 🚀 Live Demo
 
-### Core Components
+- **Production**: https://eas.airitual.ai (Base mainnet)
+- **Staging**: https://staging.eas.airitual.ai (Base Sepolia testnet)
 
-- **Validator Service**: Node.js service that validates GitHub gists and signs attestations
-- **Frontend dApp**: Multi-page web application for creating, browsing, and managing attestations
-- **EAS Integration**: Direct integration with Ethereum Attestation Service contracts on Base
-- **Secret Management**: 5-dimensional secret resolution with Bitwarden Secrets Manager
-- **Docker Infrastructure**: Production-ready containerized deployment
+## 🏗️ How It Works
 
-### System Flow
-
-1. **User Registration**: User connects wallet and generates verification JSON
-2. **GitHub Proof**: User creates a GitHub Gist containing the verification data
-3. **Validation**: Validator service verifies the gist ownership and signature
-4. **Attestation**: System creates an on-chain attestation linking GitHub username to Ethereum address
-5. **Registry**: Attestations are browsable through the web interface
+1. **Connect Wallet**: User connects MetaMask to the dApp
+2. **Generate Proof**: User creates a verification JSON with signed message
+3. **Create Gist**: User creates a GitHub Gist containing the verification data
+4. **Validate**: Validator service verifies gist ownership and signature
+5. **Attest**: System creates an on-chain EAS attestation linking GitHub username to Ethereum address
+6. **Browse**: Attestations are browsable through the web interface
 
 ## 📁 Project Structure
 
 ```
 ├── src/main/
-│   ├── html/                    # Frontend dApp (multi-page)
+│   ├── html/                    # Frontend dApp
 │   │   ├── index.html          # Browse attestations
-│   │   ├── register.html       # Create attestations
-│   │   ├── verify.html         # Verify attestations
-│   │   ├── revoke.html         # Revoke attestations
-│   │   └── config.js           # Centralized configuration
-│   └── typescript/
-│       └── validator/          # Validator service
-│           ├── index.js        # Main service
-│           ├── Dockerfile      # Container definition
-│           └── resolve-secret.sh # Secret resolution
-├── deploy/                     # Deployment configurations
-│   └── local/dev/              # Local development
-│       ├── docker-compose.yml  # Service orchestration
-│       └── nginx.conf          # Reverse proxy config
-├── taskfiles/                  # Task automation
-├── third_party/               # External dependencies
-│   └── taskfile-repo-template/ # 5D architecture template
-└── scripts/                   # Automation scripts
+│   │   ├── register.html       # Create new attestations
+│   │   └── config.js           # Configuration
+│   └── typescript/validator/    # Validator service (Node.js)
+├── deploy/k8s/                  # Kubernetes manifests
+│   ├── staging/                 # Staging environment (Base Sepolia)
+│   └── production/             # Production environment (Base mainnet)
+├── taskfiles/                   # Task automation
+└── scripts/task/               # Build and deployment scripts
 ```
 
 ## 🚀 Quick Start
@@ -51,216 +38,160 @@ A comprehensive system for creating cryptographic attestations linking GitHub us
 
 - [Task](https://taskfile.dev/) - Task runner
 - [Docker](https://docker.com/) - Container runtime
-- [BWS CLI](https://bitwarden.com/help/secrets-manager-cli/) - Secret management
 - [Node.js 20+](https://nodejs.org/) - Runtime
 
 ### Local Development
 
 1. **Clone and Setup**
 ```bash
-git clone <repository-url>
-cd contributor-attestation-service
-git submodule update --init --recursive
+git clone https://github.com/allendy/eas-attestor-github.git
+cd eas-attestor-github
 ```
 
-2. **Configure Secrets**
+2. **Start Services**
 ```bash
-# Set up Bitwarden Secrets Manager
+# Build and start with Docker Compose
+task app:docker:up
+
+# Services will be available at:
+# - Frontend: http://localhost:6000
+# - Validator: http://localhost:6001
+```
+
+3. **Development Workflow**
+```bash
+# Build application
+task app:build
+
+# Start development server
+task app:dev
+
+# Run validator locally
+task app:validator:dev
+
+# Build Docker image
+task app:validator:docker:build
+```
+
+### Using the dApp
+
+1. **Browse Attestations** (index.html)
+   - View existing GitHub ↔ Ethereum attestations
+   - Search by GitHub username or Ethereum address
+   - No wallet connection required
+
+2. **Create Attestation** (register.html)
+   - Connect MetaMask wallet
+   - Generate verification JSON
+   - Create GitHub Gist with verification data
+   - Submit for validation and on-chain attestation
+
+3. **Verify Attestation**
+   - Check attestation validity
+   - View verification details and proofs
+
+## 🔐 Secret Management
+
+The system uses Bitwarden Secrets Manager for secure credential storage:
+
+```bash
+# Configure BWS access
 export BWS_ACCESS_TOKEN="your-bws-token"
 export BWS_PROJECT_ID="your-project-id"
 
-# Test secret resolution
-task secrets:resolve SECRET_ITEM=PRIVATE_KEY
+# Test secret access
+task secrets:doctor
 ```
 
-3. **Start Services**
-```bash
-# Start all services with Docker
-cd deploy/local/dev
-docker compose up -d
+**Secret naming pattern**: `DEPLOY_CLOUD_{STAGING|PROD}_VALIDATOR_{RESOURCE}`
 
-# Check service health
-curl http://localhost:6001/health  # Validator service
-curl http://localhost:9000         # Frontend dApp
-```
-
-### Development Commands
-
-```bash
-# Core development tasks
-task typescript:build            # Build TypeScript
-task typescript:test             # Run tests
-task app:dev-server             # Start development server
-
-# Docker operations
-task container:build            # Build containers
-task container:up               # Start services
-task container:down             # Stop services
-
-# Secret management
-task secrets:create-secret      # Create new secret
-task secrets:resolve           # Resolve secret value
-task secrets:list              # List all secrets
-```
-
-## 🔐 Secret Management (5D Architecture)
-
-The system uses a 5-dimensional secret naming convention:
-
-**Pattern**: `${CONCERN}_${NETWORK}_${ENVIRONMENT}_${COMPONENT}_${RESOURCE}`
-
-### Examples
-- `DEPLOY_LOCAL_DEV_VALIDATOR_PRIVATE_KEY` - Validator private key for local dev
-- `DEPLOY_CLOUD_PROD_VALIDATOR_API_TOKEN` - Production API token
-- `CHAIN_BASE_MAINNET_RPC_URL` - Base mainnet RPC endpoint
-
-### Resolution Hierarchy
-1. **Environment Variables** (highest precedence)
-2. **.env Files** (medium precedence) 
-3. **Bitwarden Secrets Manager** (authoritative store)
+Examples:
+- `DEPLOY_CLOUD_STAGING_VALIDATOR_PRIVATE_KEY`
+- `DEPLOY_CLOUD_PROD_VALIDATOR_PRIVATE_KEY`
 
 ## 🌐 Deployment
 
-### Local Development
+### Kubernetes (Production)
+
+The system deploys to Kubernetes with staging and production environments:
+
 ```bash
-# Start all services
-cd deploy/local/dev
-docker compose up -d
+# Deploy to staging (Base Sepolia)
+task app:k8s:deploy:staging
+
+# Deploy to production (Base mainnet)  
+task app:k8s:deploy:production
+
+# Check deployment status
+task app:k8s:status:staging
+task app:k8s:status:production
 ```
 
-### Production (GCP Cloud Run)
-```bash
-# Build production image
-docker build -t eas-validator:prod src/main/typescript/validator/
+**Infrastructure:**
+- **External Secrets Operator** - Bitwarden integration
+- **cert-manager** - SSL/TLS certificates
+- **Traefik** - Ingress controller
+- **Docker Hub** - Container registry (`allenday/eas-validator:latest`)
 
-# Deploy to Cloud Run
-gcloud run deploy eas-validator \
-  --image gcr.io/PROJECT/eas-validator:prod \
-  --platform managed \
-  --region us-central1
-```
+### Environment Details
+
+| Environment | Network | URL | Purpose |
+|-------------|---------|-----|---------|
+| Staging | Base Sepolia | https://staging.eas.airitual.ai | Testing |
+| Production | Base mainnet | https://eas.airitual.ai | Live service |
 
 ## 🧪 Testing
 
-### Unit Tests
-```bash
-task typescript:test            # TypeScript tests
-```
-
-### Integration Tests
-```bash
-# Test validator service
-curl -X POST http://localhost:6001/validate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "githubUsername": "testuser",
-    "gistUrl": "https://gist.github.com/testuser/abc123",
-    "ethereumAddress": "0x..."
-  }'
-```
-
 ### Health Checks
 ```bash
-curl http://localhost:6001/health  # Validator service health
-docker compose ps                  # Service status
+# Check validator service
+curl https://eas.airitual.ai/health
+curl https://staging.eas.airitual.ai/health
+
+# Local development
+curl http://localhost:6001/health
 ```
 
-## 📊 Monitoring
-
-### Service Health
-- **Validator**: `GET /health` endpoint with service metadata
-- **Docker**: Health checks with automatic restarts
-- **Logs**: Centralized logging via Docker Compose
-
-### Metrics
-- Response times for validation requests
-- Success/failure rates
-- Active attestation counts
-
-## 🔧 Configuration
-
-### Environment Variables
+### Validation Test
 ```bash
-# Core service configuration
-NODE_ENV=development
-PORT=5001
-DOCKER_ENV=true
-
-# Network configuration  
-NETWORK=LOCAL
-ENVIRONMENT=DEV
-COMPONENT=VALIDATOR
-CONCERN=DEPLOY
-
-# BWS configuration
-BWS_ACCESS_TOKEN=your-token
-BWS_PROJECT_ID=your-project-id
+# Test validation endpoint
+task app:validator:test \
+  GITHUB_USERNAME=yourname \
+  GIST_URL=https://gist.github.com/yourname/abc123 \
+  ETH_ADDRESS=0x...
 ```
 
-### Frontend Configuration
-Edit `src/main/html/config.js` to customize:
-- GitHub URLs and domains
-- EAS contract addresses
-- Network configurations
-- Validator endpoints
+## 🔧 Available Tasks
 
-## 🏃‍♂️ Workflows
-
-### User Registration Flow
-1. User visits registration page
-2. Connects MetaMask wallet
-3. Generates verification JSON with signed message
-4. Creates GitHub Gist with JSON
-5. Submits gist URL for validation
-6. Validator service verifies ownership and signature
-7. On-chain attestation created via EAS
-
-### Attestation Browsing
-1. User visits browse page
-2. Connects wallet (optional)
-3. Loads attestations from EAS GraphQL API
-4. Filters and searches attestations
-5. Views verification details and proofs
-
-## 🤝 Contributing
-
-1. **Setup Development Environment**
 ```bash
-git clone <repo>
-cd contributor-attestation-service  
-task setup  # Sets up dependencies and environment
+# Development
+task app:build                   # Build all components
+task app:dev                     # Start development environment
+task app:serve                   # Serve built dApp locally
+
+# Docker operations
+task app:validator:docker:build  # Build validator image
+task app:validator:docker:push   # Push to DockerHub
+task app:docker:up               # Start Docker Compose services
+task app:docker:down             # Stop Docker Compose services
+
+# Kubernetes deployment
+task app:k8s:deploy:staging      # Deploy staging environment
+task app:k8s:deploy:production   # Deploy production environment
+task app:k8s:status:staging      # Check staging status
+task app:k8s:logs:staging        # View staging logs
+
+# Secret management
+task secrets:doctor              # Check BWS configuration
+task secrets:list-secrets        # List available secrets
 ```
-
-2. **Follow 5D Architecture**
-- Use proper secret naming conventions
-- Follow directory structure patterns
-- Update documentation
-
-3. **Testing**
-- Add tests for new features
-- Ensure Docker builds succeed
-- Verify secret resolution works
-
-## 🔒 Security
-
-### Best Practices
-- **No Fallback Keys**: Production uses BWS exclusively
-- **Environment Isolation**: Strict network/environment separation
-- **Container Security**: Non-root users, minimal attack surface
-- **Secret Rotation**: Regular key rotation via BWS
-- **Audit Trail**: All secret access logged
-
-### Threat Model
-- **Gist Tampering**: Mitigated by signature verification
-- **Key Compromise**: Minimized by secret management
-- **Service Disruption**: Handled by health checks and restarts
 
 ## 📚 API Reference
 
 ### Validator Service
 
 #### `POST /validate`
-Validates a GitHub gist and creates attestation signature.
+Validates GitHub gist and creates attestation signature.
 
 **Request:**
 ```json
@@ -278,8 +209,7 @@ Validates a GitHub gist and creates attestation signature.
   "validationSig": "0x...",
   "validatedAt": 1234567890,
   "validator": "0x...",
-  "message": "GitHub:user|ETH:0x...|Gist:abc|Time:123",
-  "responseTime": 1500
+  "message": "GitHub:user|ETH:0x...|Gist:abc|Time:123"
 }
 ```
 
@@ -295,12 +225,32 @@ Service health check.
 }
 ```
 
+## 🔒 Security
+
+- **No Private Keys in Code**: All credentials via Bitwarden Secrets Manager
+- **Environment Isolation**: Separate staging/production deployments
+- **Container Security**: Non-root users, minimal attack surface
+- **Signature Verification**: All GitHub gists cryptographically verified
+- **HTTPS Only**: TLS termination via cert-manager
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make changes and add tests
+4. Submit a pull request
+
+For local development:
+```bash
+task app:setup    # Initial setup
+task app:doctor   # Health check
+```
+
 ## 📄 License
 
-MIT License - see [LICENSE](LICENSE) file for details.
+MIT License - see LICENSE file for details.
 
 ## 🆘 Support
 
-- **Documentation**: [Project Docs](docs/)
-- **Issues**: [GitHub Issues](https://github.com/allendy/contributor-attestation-service/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/allendy/contributor-attestation-service/discussions)
+- **Issues**: [GitHub Issues](https://github.com/allendy/eas-attestor-github/issues)
+- **Documentation**: See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed k8s setup
