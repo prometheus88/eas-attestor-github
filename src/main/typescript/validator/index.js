@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const path = require('path');
 const { ethers } = require('ethers');
 const { exec } = require('child_process');
 const { promisify } = require('util');
@@ -60,10 +61,33 @@ class SecretError extends Error {
     }
 }
 
-// Middleware
-app.use(helmet());
+// Middleware - configure CSP to allow inline event handlers for dApp functionality
+const defaultDirectives = helmet.contentSecurityPolicy.getDefaultDirectives();
+delete defaultDirectives["script-src-attr"]; // Remove the restrictive default
+
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            ...defaultDirectives,
+            "script-src": ["'self'", "'unsafe-inline'", "https://unpkg.com", "https://esm.sh"],
+            "script-src-attr": ["'unsafe-inline'"],
+            "connect-src": ["'self'", "https://api.github.com", "https://base-sepolia.easscan.org"],
+            "img-src": ["'self'", "data:", "https:"]
+        }
+    }
+}));
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+
+// Serve static files from the HTML directory
+// In container, the HTML files are in ./html/ relative to the app directory
+const htmlDir = path.join(__dirname, 'html');
+app.use(express.static(htmlDir));
+
+// Serve index.html for root path
+app.get('/', (req, res) => {
+  res.sendFile(path.join(htmlDir, 'index.html'));
+});
 
 // Retry utility with exponential backoff
 async function retryWithBackoff(fn, options = {}) {
@@ -96,9 +120,26 @@ async function retryWithBackoff(fn, options = {}) {
     throw lastError;
 }
 
+// Map secret items to environment variable names for Kubernetes deployment
+function getEnvironmentSecretName(secretItem) {
+    const network = process.env.NETWORK || 'CLOUD';
+    const environment = process.env.NODE_ENV === 'production' ? 'PROD' : 'STAGING';
+    const component = 'VALIDATOR';
+    
+    return `DEPLOY_${network}_${environment}_${component}_${secretItem}`;
+}
+
 // 5D secret resolution with error handling
 async function getSecret(secretItem) {
     const operation = async () => {
+        // Try direct environment variable first (for Kubernetes)
+        const envVarName = getEnvironmentSecretName(secretItem);
+        if (process.env[envVarName]) {
+            console.log(`Using direct environment variable: ${envVarName}`);
+            return process.env[envVarName];
+        }
+        
+        // Fallback to script-based resolution (for local development)
         const scriptPath = process.env.NODE_ENV === 'development' && process.env.DOCKER_ENV 
           ? '/usr/local/bin/resolve-secret.sh'
           : '../../../third_party/taskfile-repo-template/scripts/task/secrets/resolve-secret.sh';
@@ -119,7 +160,7 @@ async function getSecret(secretItem) {
             return result;
         } catch (error) {
             if (error.code === 'ENOENT') {
-                throw new SecretError(`Secret resolution script not found`, 'SCRIPT_NOT_FOUND', 500);
+                throw new SecretError(`Secret resolution script not found and no environment variable ${envVarName}`, 'SCRIPT_NOT_FOUND', 500);
             } else if (error.message.includes('timeout')) {
                 throw new NetworkError(`Secret resolution timed out for ${secretItem}`, 'SECRET_TIMEOUT');
             } else if (error.message.includes('not found')) {
