@@ -45,15 +45,10 @@ jobs:
           BWS_ACCESS_TOKEN: ${{ secrets.BWS_ACCESS_TOKEN }}
           BWS_PROJECT_ID: ${{ secrets.BWS_PROJECT_ID }}
         run: |
-          # Get validator URL from BWS using 5D pattern
-          EAS_VALIDATOR_URL=$(BWS_ACCESS_TOKEN="${BWS_ACCESS_TOKEN}" BWS_PROJECT_ID="${BWS_PROJECT_ID}" NETWORK=CLOUD ENVIRONMENT=PROD SERVICE=VALIDATOR task secrets:resolve SECRET_ITEM=VALIDATOR_URL 2>/dev/null || echo "")
-          
-          if [ -z "$EAS_VALIDATOR_URL" ]; then
-            echo "⚠️  No validator URL found in BWS, using default endpoint discovery"
-          else
-            echo "🔧 Using validator URL from BWS: $EAS_VALIDATOR_URL"
-            export EAS_VALIDATOR_URL
-          fi
+          # For GitHub Pages, use the Kubernetes production validator endpoint
+          EAS_VALIDATOR_URL="https://eas.airitual.ai"
+          echo "🔧 Using Kubernetes validator URL: $EAS_VALIDATOR_URL"
+          export EAS_VALIDATOR_URL
           
           task app:build
           
