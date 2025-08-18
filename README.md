@@ -44,7 +44,7 @@ A system for creating cryptographic attestations that link GitHub usernames to E
 
 1. **Clone and Setup**
 ```bash
-git clone https://github.com/allendy/eas-attestor-github.git
+git clone https://github.com/allenday/eas-attestor-github.git
 cd eas-attestor-github
 ```
 
@@ -252,5 +252,5 @@ MIT License - see LICENSE file for details.
 
 ## 🆘 Support
 
-- **Issues**: [GitHub Issues](https://github.com/allendy/eas-attestor-github/issues)
+- **Issues**: [GitHub Issues](https://github.com/allenday/eas-attestor-github/issues)
 - **Documentation**: See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed k8s setup
