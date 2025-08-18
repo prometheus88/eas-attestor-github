@@ -1,0 +1,166 @@
+syntax = "proto3";
+
+package eas.schemas;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+// Domain registry - represents a platform/service
+message Domain {
+  string name = 1;                // "GitHub", "Twitter", etc.
+  string domain = 2;              // "github.com", "twitter.com"
+}
+
+// Repository registry - represents a code repository
+message Repository {
+  Domain domain = 1;              // Points to domain (e.g., GitHub)
+  string full_name = 2;           // "owner/repo"
+}
+
+// Identity registry - links domain identifier to Ethereum address
+message Identity {
+  Domain domain = 1;              // Points to domain
+  string identifier = 2;          // username on that domain
+  string ethereum_address = 3;    // 0x...
+  string proof_url = 4;           // verification proof URL
+  google.protobuf.Timestamp verified_at = 5;
+}
+
+// Issue-related events
+enum IssueEvent {
+  ISSUE_EVENT_UNKNOWN = 0;
+  ISSUE_EVENT_OPENED = 1;
+  ISSUE_EVENT_CLOSED = 2;
+}
+
+// Pull request events
+enum PullRequestEvent {
+  PR_EVENT_UNKNOWN = 0;
+  PR_EVENT_OPENED = 1;
+  PR_EVENT_MERGED = 2;
+  PR_EVENT_CLOSED = 3;
+  PR_EVENT_REVIEWED = 4;
+}
+
+// Review events
+enum ReviewEvent {
+  REVIEW_EVENT_UNKNOWN = 0;
+  REVIEW_EVENT_APPROVED = 1;
+  REVIEW_EVENT_CHANGES_REQUESTED = 2;
+  REVIEW_EVENT_COMMENTED = 3;
+}
+
+// GitHub webhook event types
+enum WebhookEventType {
+  WEBHOOK_EVENT_UNKNOWN = 0;
+  WEBHOOK_EVENT_ISSUES = 1;
+  WEBHOOK_EVENT_PULL_REQUEST = 2;
+  WEBHOOK_EVENT_PULL_REQUEST_REVIEW = 3;
+}
+
+message Contribution {
+  Identity identity = 1;          // Points to identity
+  Repository repository = 2;      // Points to repository
+  string url = 3;                 // Platform-specific URL to the contribution
+  google.protobuf.Timestamp occurred_at = 4;
+}
+
+// Issue contribution - specific to issue lifecycle
+message IssueContribution {
+  Contribution contribution = 1;
+  IssueEvent event_type = 2;      // What happened
+}
+
+// Pull request contribution - specific to PR lifecycle
+message PullRequestContribution {
+  Contribution contribution = 1;
+  PullRequestEvent event_type = 2; // What happened
+  string commit_hash = 3;         // Merge commit or latest commit
+  repeated IssueContribution linked_issues = 4; // Issues this PR addresses
+}
+
+// Code review contribution - specific to review activity
+message ReviewContribution {
+  Contribution contribution = 1;
+  ReviewEvent event_type = 2;     // Type of review
+  PullRequestContribution reviewed_pr = 3; // The PR being reviewed (full context)
+}
+
+// Monitoring configuration settings
+message MonitoringConfig {
+  bool monitor_issues = 1;         // Track issue events
+  bool monitor_prs = 2;            // Track PR events  
+  bool monitor_reviews = 3;        // Track review events
+}
+
+// Repository registration for EAS attestation (stored on-chain)
+message RepositoryRegistration {
+  Repository repository = 1;       // The repository to monitor
+  Identity registrant = 2;         // Identity of the registrant (GitHub user -> ETH address)
+  bytes registrant_signature = 3;  // Signature of "owner/repo" by registrant
+  MonitoringConfig config = 4;     // Monitoring configuration
+  google.protobuf.Timestamp registered_at = 5;
+  // Note: webhook_secret derived as keccak256(repository.full_name + registrant_signature + validator_private_key)
+}
+
+// Webhook payload wrapper
+message WebhookEvent {
+  Repository repository = 1;       // Repository where event occurred
+  WebhookEventType event_type = 2; // Type of GitHub webhook event
+  string action = 3;              // "opened", "closed", "submitted", etc.
+  string raw_payload = 4;         // Original GitHub JSON payload
+  google.protobuf.Timestamp received_at = 5;
+}
+
+// RPC Services
+service ContributionService {
+  // Repository management (new on-chain approach)
+  rpc RegisterRepository(RepositoryRegistration) returns (RegisterRepositoryResponse);
+  rpc GetWebhookSecret(Repository) returns (WebhookSecretResponse);
+  rpc ListRegisteredRepositories(google.protobuf.Empty) returns (ListRegisteredRepositoriesResponse);
+  
+  // Webhook processing
+  rpc ProcessWebhook(WebhookEvent) returns (ProcessWebhookResponse);
+  
+  // Contribution queries
+  rpc GetContributions(GetContributionsRequest) returns (GetContributionsResponse);
+  rpc GetContributionsByIdentity(Identity) returns (GetContributionsResponse);
+  rpc GetContributionsByRepository(Repository) returns (GetContributionsResponse);  
+}
+
+// Request/Response messages
+message RegisterRepositoryResponse {
+  string attestation_uid = 1;      // EAS attestation UID for the registration
+  string webhook_secret = 2;       // Derived webhook secret for GitHub configuration
+}
+
+message WebhookSecretResponse {
+  string webhook_secret = 1;       // Derived webhook secret for this repository
+  bool registered = 2;            // Whether repository is registered
+}
+
+message ListRegisteredRepositoriesResponse {
+  repeated RepositoryRegistration repositories = 1;
+}
+
+message ProcessWebhookResponse {
+  bool processed = 1;
+  string attestation_uid = 2;      // EAS attestation UID if created
+  string error = 3;               // Error message if failed
+}
+
+message GetContributionsRequest {
+  Repository repository = 1;
+  Identity identity = 2;
+  google.protobuf.Timestamp start_time = 3;
+  google.protobuf.Timestamp end_time = 4;
+  uint32 limit = 5;
+  uint32 offset = 6;
+}
+
+message GetContributionsResponse {
+  repeated IssueContribution issues = 1;
+  repeated PullRequestContribution pull_requests = 2;
+  repeated ReviewContribution reviews = 3;
+  uint32 total_count = 4;
+} 
