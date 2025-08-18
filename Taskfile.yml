@@ -5,32 +5,7 @@ dotenv: ['.env']
 
 # Modular Taskfile - Core functionality with optional extensions
 includes:
-  # Core repository health and CI tasks (always included)
-  core:
-    taskfile: ./taskfiles/Core.yml
-    dir: .
   
-  # Language and technology-specific extensions (optional)
-  typescript:
-    taskfile: ./taskfiles/Typescript.yml
-    optional: true
-    aliases: [ts]
-  
-  solidity:
-    taskfile: ./taskfiles/Solidity.yml
-    optional: true
-    aliases: [sol]
-  
-  protobuf:
-    taskfile: ./taskfiles/Protobuf.yml
-    optional: true
-    aliases: [proto, pb]
-  
-  # Container orchestration (optional)
-  container:
-    taskfile: ./taskfiles/Container.yml
-    optional: true
-    aliases: [docker]
   
   # Secret management
   secrets:

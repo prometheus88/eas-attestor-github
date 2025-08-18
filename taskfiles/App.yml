@@ -7,7 +7,6 @@ vars:
   HTML_DOCS_DIR: "{{.BUILD_DIR}}/html/docs"
   VALIDATOR_SRC_DIR: "src/main/typescript/validator"
   VALIDATOR_BUILD_DIR: "{{.BUILD_DIR}}/typescript/validator"
-  VALIDATOR_DEPLOY_DIR: "deploy/validator/local"
 
 tasks:
   # Build tasks (application-specific only)
@@ -48,15 +47,19 @@ tasks:
       - "{{.HTML_DIST_DIR}}/**/*"
 
   build:validator:
-    desc: Build validator service
+    desc: Build validator service with HTML files
+    deps: [build:dist]
     cmds:
       - echo "🔨 Building validator service..."
       - mkdir -p {{.VALIDATOR_BUILD_DIR}}
       - cp -r {{.VALIDATOR_SRC_DIR}}/* {{.VALIDATOR_BUILD_DIR}}/
+      - echo "📄 Copying HTML files to validator build..."
+      - cp -r {{.HTML_DIST_DIR}} {{.VALIDATOR_BUILD_DIR}}/html/
       - cd {{.VALIDATOR_BUILD_DIR}} && npm ci --only=production
-      - echo "✅ Validator build complete"
+      - echo "✅ Validator build complete with HTML files"
     sources:
       - "{{.VALIDATOR_SRC_DIR}}/**/*"
+      - "{{.HTML_DIST_DIR}}/**/*"
     generates:
       - "{{.VALIDATOR_BUILD_DIR}}/**/*"
 
@@ -125,13 +128,21 @@ tasks:
       - node index.js
 
   validator:docker:build:
-    desc: Build validator Docker image
+    desc: Build validator Docker image for x86_64 architecture
     deps: [build:validator]
     cmds:
-      - echo "Building validator Docker image..."
-      - cp {{.VALIDATOR_DEPLOY_DIR}}/docker/Dockerfile {{.VALIDATOR_BUILD_DIR}}/
-      - docker build -t eas-validator:latest {{.VALIDATOR_BUILD_DIR}}
-      - echo "Docker image built - eas-validator:latest"
+      - echo "Building validator Docker image for linux/amd64..."
+      - cp {{.VALIDATOR_SRC_DIR}}/Dockerfile {{.VALIDATOR_BUILD_DIR}}/
+      - docker buildx build --platform linux/amd64 -t allenday/eas-validator:latest {{.VALIDATOR_BUILD_DIR}}
+      - echo "Docker image built - allenday/eas-validator:latest (linux/amd64)"
+
+  validator:docker:push:
+    desc: Push validator Docker image to DockerHub
+    deps: [validator:docker:build]
+    cmds:
+      - echo "Pushing validator Docker image to DockerHub..."
+      - docker push allenday/eas-validator:latest
+      - echo "Docker image pushed - allenday/eas-validator:latest"
 
   validator:docker:run:
     desc: Run validator container locally
@@ -303,3 +314,101 @@ tasks:
       - cmd: '[ -n "$BASESCAN_API_KEY" ]'
         silent: true
       - echo "✅ Basescan API key configured"
+
+  # Kubernetes deployment tasks
+  k8s:deploy:staging:
+    desc: Deploy complete staging environment (Base Sepolia) with all prerequisites
+    env:
+      BWS_ACCESS_TOKEN: "${BWS_ACCESS_TOKEN}"
+      BWS_PROJECT_ID: "${BWS_PROJECT_ID}"
+    cmds:
+      - |
+        echo "🚀 Deploying staging environment with all prerequisites..."
+        
+        # Use local kubeconfig for now until BWS token issue is resolved
+        KUBECONFIG="../kube-hetzner/k3s_kubeconfig.yaml"
+        
+        echo "📋 Creating namespaces (idempotent)..."
+        kubectl --kubeconfig="$KUBECONFIG" create namespace staging --dry-run=client -o yaml | kubectl --kubeconfig="$KUBECONFIG" apply -f -
+        kubectl --kubeconfig="$KUBECONFIG" create namespace production --dry-run=client -o yaml | kubectl --kubeconfig="$KUBECONFIG" apply -f -
+        
+        echo "🔑 Applying SecretStore configuration..."
+        kubectl --kubeconfig="$KUBECONFIG" apply -f bitwarden-secretstore.yaml
+        
+        echo "📋 Applying ClusterIssuer (prerequisite)..."
+        kubectl --kubeconfig="$KUBECONFIG" apply -f deploy/k8s/staging/letsencrypt-clusterissuer.yaml
+        
+        echo "📋 Applying all staging resources (secrets, service, deployment, ingress)..."  
+        kubectl --kubeconfig="$KUBECONFIG" apply -f deploy/k8s/staging/
+        
+        echo "✅ Deployment complete! Checking status..."
+        kubectl --kubeconfig="$KUBECONFIG" get all -n staging
+        echo ""
+        echo "🔍 SSL Certificate status:"
+        kubectl --kubeconfig="$KUBECONFIG" get certificate -n staging
+    preconditions:
+      - sh: '[ -f "../kube-hetzner/k3s_kubeconfig.yaml" ]'
+        msg: "kubeconfig file not found at ../kube-hetzner/k3s_kubeconfig.yaml"
+      - sh: '[ -f "bitwarden-secretstore.yaml" ]'
+        msg: "SecretStore configuration not found at bitwarden-secretstore.yaml"
+
+  k8s:deploy:production:
+    desc: Deploy to Kubernetes production environment (Base mainnet)
+    cmds:
+      - kubectl apply -f deploy/k8s/production/
+
+  k8s:destroy:staging:
+    desc: Destroy Kubernetes staging environment
+    cmds:
+      - kubectl delete -f deploy/k8s/staging/ || true
+
+  k8s:destroy:production:
+    desc: Destroy Kubernetes production environment
+    cmds:
+      - kubectl delete -f deploy/k8s/production/ || true
+
+  k8s:status:staging:
+    desc: Check Kubernetes staging deployment status
+    cmds:
+      - echo "🔍 Staging environment status (Base Sepolia)"
+      - kubectl get all -n staging
+      - echo ""
+      - kubectl get ingress -n staging
+
+  k8s:status:production:
+    desc: Check Kubernetes production deployment status
+    cmds:
+      - echo "🔍 Production environment status (Base mainnet)"
+      - kubectl get all -n production
+      - echo ""
+      - kubectl get ingress -n production
+
+  k8s:logs:staging:
+    desc: Show logs from Kubernetes staging pods
+    cmds:
+      - kubectl logs -n staging -l app=eas-validator --tail=100 -f
+
+  k8s:logs:production:
+    desc: Show logs from Kubernetes production pods
+    cmds:
+      - kubectl logs -n production -l app=eas-validator --tail=100 -f
+
+  k8s:restart:staging:
+    desc: Restart Kubernetes staging deployment
+    cmds:
+      - kubectl rollout restart deployment/eas-validator -n staging
+
+  k8s:restart:production:
+    desc: Restart Kubernetes production deployment
+    cmds:
+      - kubectl rollout restart deployment/eas-validator -n production
+
+  k8s:shell:staging:
+    desc: Open shell in staging pod
+    cmds:
+      - kubectl exec -it -n staging deployment/eas-validator -- /bin/bash
+
+  k8s:shell:production:
+    desc: Open shell in production pod
+    cmds:
+      - kubectl exec -it -n production deployment/eas-validator -- /bin/bash
