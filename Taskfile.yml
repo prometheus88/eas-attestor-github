@@ -6,6 +6,11 @@ dotenv: ['.env']
 # Modular Taskfile - Core functionality with optional extensions
 includes:
   
+  # Protocol Buffers
+  protobuf:
+    taskfile: ./taskfiles/Protobuf.yml
+    optional: true
+    aliases: [proto]
   
   # Secret management
   secrets:

@@ -1,0 +1,4 @@
+protobuf:
+    taskfile: ./taskfiles/Protobuf.yml
+    optional: true
+    aliases: [proto, pb]

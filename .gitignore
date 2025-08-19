@@ -44,4 +44,4 @@ Thumbs.db
 *.un~
 *~
 logs/
-hackathon/
+hackathon/src/generated/

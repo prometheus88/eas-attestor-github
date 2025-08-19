@@ -11,7 +11,17 @@ tasks:
   # Build tasks (application-specific only)
   build:
     desc: Build all application components (dApp and validator)
-    deps: [build:dist, build:validator]
+    deps: [build:schemas, build:dist, build:validator]
+
+  build:schemas:
+    desc: Generate TypeScript types and EAS schemas from protobuf definitions
+    cmds:
+      - task protobuf:gen-typescript
+      - echo "✅ TypeScript protobuf types generated"
+    sources:
+      - src/main/proto/**/*.proto
+    generates:
+      - src/generated/typescript/**/*.ts
 
 
   build:dist:
@@ -35,19 +45,24 @@ tasks:
       - "{{.HTML_DIST_DIR}}/**/*"
 
   build:validator:
-    desc: Build validator service with HTML files
-    deps: [build:dist]
+    desc: Build validator service with HTML files and generated TypeScript
+    deps: [build:schemas, build:dist]
     cmds:
       - echo "🔨 Building validator service..."
       - mkdir -p {{.VALIDATOR_BUILD_DIR}}
       - cp -r {{.VALIDATOR_SRC_DIR}}/* {{.VALIDATOR_BUILD_DIR}}/
       - echo "📄 Copying HTML files to validator build..."
       - cp -r {{.HTML_DIST_DIR}} {{.VALIDATOR_BUILD_DIR}}/html/
-      - cd {{.VALIDATOR_BUILD_DIR}} && npm ci --only=production
-      - echo "✅ Validator build complete with HTML files"
+      - echo "🔧 Copying generated TypeScript protobuf types..."
+      - mkdir -p {{.VALIDATOR_BUILD_DIR}}/generated
+      - cp -r src/generated/typescript {{.VALIDATOR_BUILD_DIR}}/generated/
+      - echo "📦 Installing validator dependencies..."
+      - cd {{.VALIDATOR_BUILD_DIR}} && npm install --only=production
+      - echo "✅ Validator build complete with HTML files and generated types"
     sources:
       - "{{.VALIDATOR_SRC_DIR}}/**/*"
       - "{{.HTML_DIST_DIR}}/**/*"
+      - "src/generated/typescript/**/*"
     generates:
       - "{{.VALIDATOR_BUILD_DIR}}/**/*"
 

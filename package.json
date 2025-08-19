@@ -41,7 +41,9 @@
     "eslint": "^9.33.0",
     "jest": "^30.0.5",
     "prettier": "^3.6.2",
+    "protoc-gen-ts": "^0.8.7",
     "ts-jest": "^29.4.1",
+    "ts-protoc-gen": "^0.15.0",
     "typescript": "^5.9.2"
   }
 }

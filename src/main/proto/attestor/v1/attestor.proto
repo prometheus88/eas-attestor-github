@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package eas.schemas;
+package attestor.v1;
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/empty.proto";
@@ -14,7 +14,7 @@ message Domain {
 // Repository registry - represents a code repository
 message Repository {
   Domain domain = 1;              // Points to domain (e.g., GitHub)
-  string full_name = 2;           // "owner/repo"
+  string path = 2;           // "owner/repo"
 }
 
 // Identity registry - links domain identifier to Ethereum address
@@ -30,7 +30,7 @@ message Identity {
 enum IssueEvent {
   ISSUE_EVENT_UNKNOWN = 0;
   ISSUE_EVENT_OPENED = 1;
-  ISSUE_EVENT_CLOSED = 2;
+  ISSUE_EVENT_RESOLVED = 2;
 }
 
 // Pull request events
@@ -39,7 +39,6 @@ enum PullRequestEvent {
   PR_EVENT_OPENED = 1;
   PR_EVENT_MERGED = 2;
   PR_EVENT_CLOSED = 3;
-  PR_EVENT_REVIEWED = 4;
 }
 
 // Review events
@@ -47,7 +46,6 @@ enum ReviewEvent {
   REVIEW_EVENT_UNKNOWN = 0;
   REVIEW_EVENT_APPROVED = 1;
   REVIEW_EVENT_CHANGES_REQUESTED = 2;
-  REVIEW_EVENT_COMMENTED = 3;
 }
 
 // GitHub webhook event types
@@ -63,6 +61,8 @@ message Contribution {
   Repository repository = 2;      // Points to repository
   string url = 3;                 // Platform-specific URL to the contribution
   google.protobuf.Timestamp occurred_at = 4;
+  bytes identity_attestation_uid = 5;     // UID of the Identity attestation for composability
+  bytes repository_registration_uid = 6; // UID of the RepositoryRegistration attestation
 }
 
 // Issue contribution - specific to issue lifecycle
@@ -77,6 +77,7 @@ message PullRequestContribution {
   PullRequestEvent event_type = 2; // What happened
   string commit_hash = 3;         // Merge commit or latest commit
   repeated IssueContribution linked_issues = 4; // Issues this PR addresses
+  repeated bytes linked_issue_uids = 5; // UIDs of linked issue attestations for composability
 }
 
 // Code review contribution - specific to review activity
@@ -84,13 +85,7 @@ message ReviewContribution {
   Contribution contribution = 1;
   ReviewEvent event_type = 2;     // Type of review
   PullRequestContribution reviewed_pr = 3; // The PR being reviewed (full context)
-}
-
-// Monitoring configuration settings
-message MonitoringConfig {
-  bool monitor_issues = 1;         // Track issue events
-  bool monitor_prs = 2;            // Track PR events  
-  bool monitor_reviews = 3;        // Track review events
+  bytes reviewed_pr_uid = 4;      // UID of the reviewed PR attestation for composability
 }
 
 // Repository registration for EAS attestation (stored on-chain)
@@ -98,8 +93,7 @@ message RepositoryRegistration {
   Repository repository = 1;       // The repository to monitor
   Identity registrant = 2;         // Identity of the registrant (GitHub user -> ETH address)
   bytes registrant_signature = 3;  // Signature of "owner/repo" by registrant
-  MonitoringConfig config = 4;     // Monitoring configuration
-  google.protobuf.Timestamp registered_at = 5;
+  google.protobuf.Timestamp registered_at = 4;
   // Note: webhook_secret derived as keccak256(repository.full_name + registrant_signature + validator_private_key)
 }
 
@@ -125,7 +119,13 @@ service ContributionService {
   // Contribution queries
   rpc GetContributions(GetContributionsRequest) returns (GetContributionsResponse);
   rpc GetContributionsByIdentity(Identity) returns (GetContributionsResponse);
-  rpc GetContributionsByRepository(Repository) returns (GetContributionsResponse);  
+  rpc GetContributionsByRepository(Repository) returns (GetContributionsResponse);
+  
+  // Referential lookups
+  rpc GetContributionsByIdentityUid(GetContributionsByUidRequest) returns (GetContributionsResponse);
+  rpc GetContributionsByRepositoryUid(GetContributionsByUidRequest) returns (GetContributionsResponse);
+  rpc GetLinkedIssues(GetLinkedIssuesRequest) returns (GetLinkedIssuesResponse);
+  rpc GetPullRequestReviews(GetPullRequestReviewsRequest) returns (GetPullRequestReviewsResponse);  
 }
 
 // Request/Response messages
@@ -163,4 +163,27 @@ message GetContributionsResponse {
   repeated PullRequestContribution pull_requests = 2;
   repeated ReviewContribution reviews = 3;
   uint32 total_count = 4;
+}
+
+// Referential lookup request/response messages
+message GetContributionsByUidRequest {
+  bytes attestation_uid = 1;       // UID of the identity or repository attestation
+  uint32 limit = 2;
+  uint32 offset = 3;
+}
+
+message GetLinkedIssuesRequest {
+  bytes pr_attestation_uid = 1;    // UID of the PR attestation
+}
+
+message GetLinkedIssuesResponse {
+  repeated IssueContribution issues = 1;
+}
+
+message GetPullRequestReviewsRequest {
+  bytes pr_attestation_uid = 1;    // UID of the PR attestation  
+}
+
+message GetPullRequestReviewsResponse {
+  repeated ReviewContribution reviews = 1;
 } 
