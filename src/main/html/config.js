@@ -58,10 +58,8 @@ window.EAS_CONFIG = {
                     return this.local;
                 }
                 
-                // For production deployments, the validator URL should be provided
-                // via build-time environment variables or deployment configuration
-                console.warn('No validator endpoint configured. Set window.EAS_VALIDATOR_URL or configure deployment.');
-                return null;
+                // For staging/production, use same origin (validator serves on same host)
+                return window.location.origin;
             }
         }
     }
