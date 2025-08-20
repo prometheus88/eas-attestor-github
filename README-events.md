@@ -211,9 +211,6 @@ Response: { webhook_secret: string, registration_uid: string }
 GET /api/v1/repositories
 List all registered repositories
 
-GET /api/v1/repositories/{domain}/{path}/webhook-secret  
-Get webhook secret for existing registration
-
 DELETE /api/v1/repositories/{domain}/{path}
 Unregister repository (admin only)
 ```
@@ -258,9 +255,6 @@ The system also exposes gRPC services for high-performance integrations:
 service ContributionService {
   // Register repository for monitoring
   rpc RegisterRepository(RepositoryRegistration) returns (RegisterRepositoryResponse);
-  
-  // Get webhook secret for existing registration
-  rpc GetWebhookSecret(Repository) returns (WebhookSecretResponse);
   
   // List all registered repositories  
   rpc ListRegisteredRepositories(google.protobuf.Empty) returns (ListRegisteredRepositoriesResponse);
