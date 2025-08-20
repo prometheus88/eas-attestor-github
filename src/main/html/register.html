@@ -6,12 +6,20 @@
     <title>EAS Attestor for Github</title>
     <script src="./config.js"></script>
     <script src="https://unpkg.com/ethers@6.13.4/dist/ethers.umd.min.js"></script>
-    <script type="module">
-        // Load EAS SDK from ESM.sh (the working CDN)
-        const easModule = await import('https://esm.sh/@ethereum-attestation-service/eas-sdk@2.7.0');
-        window.EAS = easModule.EAS;
-        window.SchemaEncoder = easModule.SchemaEncoder;
-        console.log('✅ EAS SDK loaded successfully');
+    <script>
+        // Initialize EAS SDK loading promise
+        window.easSDKReady = (async function() {
+            try {
+                const easModule = await import('https://esm.sh/@ethereum-attestation-service/eas-sdk@2.7.0');
+                window.EAS = easModule.EAS;
+                window.SchemaEncoder = easModule.SchemaEncoder;
+                console.log('✅ EAS SDK loaded successfully');
+                return true;
+            } catch (error) {
+                console.error('Failed to load EAS SDK:', error);
+                throw error;
+            }
+        })();
     </script>
     <style>
         * {
@@ -426,9 +434,9 @@
         };
 
         // Schema for validated domain identifier to Ethereum address attestation
-        // Schema: "string domain,string identifier,string proofUrl,bytes validationSig,uint256 validatedAt,address validator"  
-        // domain = window.EAS_CONFIG.github.domain, identifier = github username, proofUrl = gist URL
-        // validationSig = GitHub Actions validation signature, validatedAt = timestamp, validator = trusted validator address
+        // Schema: "string domain,string identifier,string ethereumAddress,string proofUrl,address validator,bytes validationSig"  
+        // domain = window.EAS_CONFIG.github.domain, identifier = github username, ethereumAddress = 0x..., proofUrl = gist URL
+        // validator = trusted validator address, validationSig = GitHub Actions validation signature
         const ATTESTATION_SCHEMA_UID = "0xe5daad34f7c6c87eb60d2d32bde166ff4b87c8d165a95af58a93e774fc28c96e" // Base Sepolia (new schema)
 
         async function connectWallet() {
@@ -664,7 +672,6 @@
                 return {
                     success: true,
                     validationSig: result.validationSig,
-                    validatedAt: result.validatedAt,
                     validator: result.validator
                 };
                 
@@ -866,6 +873,9 @@
             const button = document.getElementById('submitAttestation');
             const status = document.getElementById('submissionStatus');
             
+            // Wait for EAS SDK to be ready
+            await window.easSDKReady;
+            
             if (!window.validationResult || !window.validatedGistUrl) {
                 status.innerHTML = `
                     <div class="status error">
@@ -905,7 +915,6 @@
                 eas.connect(signer);
 
                 const validationSig = window.validationResult.validationSig;
-                const validatedAt = window.validationResult.validatedAt;
                 const validator = window.validationResult.validator;
                 const githubUsername = verificationData.github_username;
                 const gistUrl = window.validatedGistUrl;
@@ -918,14 +927,14 @@
                 `;
 
                 // Encode the attestation data with validation fields
-                const schemaEncoder = new window.SchemaEncoder("string domain,string identifier,string proofUrl,bytes validationSig,uint256 validatedAt,address validator");
+                const schemaEncoder = new window.SchemaEncoder("string domain,string identifier,string ethereumAddress,string proofUrl,address validator,bytes validationSig");
                 const encodedData = schemaEncoder.encodeData([
                     { name: "domain", value: window.EAS_CONFIG.github.domain, type: "string" },
                     { name: "identifier", value: githubUsername, type: "string" },
+                    { name: "ethereumAddress", value: walletAddress, type: "string" },
                     { name: "proofUrl", value: gistUrl, type: "string" },
-                    { name: "validationSig", value: validationSig, type: "bytes" },
-                    { name: "validatedAt", value: validatedAt, type: "uint256" },
-                    { name: "validator", value: validator, type: "address" }
+                    { name: "validator", value: validator, type: "address" },
+                    { name: "validationSig", value: validationSig, type: "bytes" }
                 ]);
 
                 // Create the attestation
@@ -994,9 +1003,6 @@
 
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', () => {
-            // Set dynamic source code link
-            document.getElementById('sourceCodeLink').href = window.EAS_CONFIG.project.repository;
-            
             // Set dynamic gist URL placeholder
             document.getElementById('gistUrl').placeholder = `${window.EAS_CONFIG.github.gistUrl}/username/...`;
             
