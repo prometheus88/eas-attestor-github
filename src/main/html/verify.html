@@ -377,7 +377,7 @@
                 }
 
                 // Decode the attestation data
-                const schemaEncoder = new window.SchemaEncoder("string domain,string identifier,string proofUrl,bytes validationSig,uint256 validatedAt,address validator");
+                const schemaEncoder = new window.SchemaEncoder("string domain,string identifier,string ethereumAddress,string proofUrl,address validator,bytes validationSig");
                 const decodedData = schemaEncoder.decodeData(attestation.data);
                 
                 // Extract decoded values
@@ -385,7 +385,7 @@
                 const identifier = decodedData.find(item => item.name === 'identifier')?.value?.value || 'unknown';
                 const proofUrl = decodedData.find(item => item.name === 'proofUrl')?.value?.value || 'unknown';
                 const validationSig = decodedData.find(item => item.name === 'validationSig')?.value?.value || '0x';
-                const validatedAt = decodedData.find(item => item.name === 'validatedAt')?.value?.value || '0';
+                const ethereumAddress = decodedData.find(item => item.name === 'ethereumAddress')?.value?.value || 'Unknown';
                 const validator = decodedData.find(item => item.name === 'validator')?.value?.value || '0x0';
 
                 // Check if validator matches our known validator
@@ -402,7 +402,7 @@
                     proofUrl,
                     validator,
                     isValidValidator,
-                    validatedAt: new Date(parseInt(validatedAt) * 1000).toLocaleString(),
+                    ethereumAddress: ethereumAddress,
                     networkName
                 });
 
@@ -472,8 +472,8 @@
                     </div>
                     
                     <div class="detail-row">
-                        <span class="detail-label">Validated At:</span>
-                        <span class="detail-value">${details.validatedAt}</span>
+                        <span class="detail-label">Ethereum Address:</span>
+                        <span class="detail-value">${details.ethereumAddress}</span>
                     </div>
                     
                     <div class="detail-row">

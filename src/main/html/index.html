@@ -508,7 +508,7 @@
         }
 
         async function processAttestations(rawAttestations) {
-            const schemaEncoder = new window.SchemaEncoder("string domain,string identifier,string proofUrl,bytes validationSig,uint256 validatedAt,address validator");
+            const schemaEncoder = new window.SchemaEncoder("string domain,string identifier,string ethereumAddress,string proofUrl,address validator,bytes validationSig");
             
             return rawAttestations.map(attestation => {
                 try {
@@ -518,7 +518,7 @@
                     const identifier = decodedData.find(item => item.name === 'identifier')?.value?.value || 'unknown';
                     const proofUrl = decodedData.find(item => item.name === 'proofUrl')?.value?.value || '';
                     const validator = decodedData.find(item => item.name === 'validator')?.value?.value || '0x0';
-                    const validatedAt = decodedData.find(item => item.name === 'validatedAt')?.value?.value || '0';
+                    const ethereumAddress = decodedData.find(item => item.name === 'ethereumAddress')?.value?.value || 'Unknown';
 
                     return {
                         uid: attestation.id,
@@ -530,7 +530,7 @@
                         identifier,
                         proofUrl,
                         validator,
-                        validatedAt: new Date(parseInt(validatedAt) * 1000),
+                        ethereumAddress: ethereumAddress,
                         isValidValidator: validator.toLowerCase() === KNOWN_VALIDATOR_ADDRESS.toLowerCase()
                     };
                 } catch (error) {
