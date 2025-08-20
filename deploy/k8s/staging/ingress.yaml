@@ -1,28 +1,28 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: eas-validator-staging
+  name: attestor-staging
   namespace: staging
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
     traefik.ingress.kubernetes.io/router.tls: "true"
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
-    cert-manager.io/acme-challenge-type: "http01"
+    cert-manager.io/acme-challenge-type: "dns01"
 # traefik.ingress.kubernetes.io/router.middlewares: staging-cors@kubernetescrd
 spec:
   ingressClassName: traefik
   tls:
   - hosts:
-    - staging.eas.airitual.ai  # Replace with your staging domain
-    secretName: staging-tls
+    - "*.staging.cyberstorm.dev"
+    secretName: wildcard-staging-tls
   rules:
-  - host: staging.eas.airitual.ai  # Replace with your staging domain
+  - host: attestor.staging.cyberstorm.dev
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: eas-validator
+            name: attestor
             port:
               number: 80

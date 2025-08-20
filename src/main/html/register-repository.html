@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register Repository - EAS GitHub Attestor</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #333;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            width: 100%;
+            transition: background-color 0.2s;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #28a745;
+            background: #d4edda;
+            color: #155724;
+            display: none;
+        }
+        .error {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .message-preview {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+        }
+        .help-text {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .nav {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .nav a {
+            color: #007bff;
+            text-decoration: none;
+            margin: 0 15px;
+        }
+        .nav a:hover {
+            text-decoration: underline;
+        }
+        .step {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .step h3 {
+            margin-top: 0;
+            color: #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📚 Register Repository</h1>
+            <p>Register your GitHub repository to enable contribution tracking</p>
+        </div>
+
+        <div class="nav">
+            <a href="/">Home</a>
+            <a href="/verify.html">Verify Identity</a>
+            <a href="/register.html">Register Identity</a>
+            <a href="/register-repository.html">Register Repository</a>
+        </div>
+
+        <div class="step">
+            <h3>Step 1: Repository Information</h3>
+            
+            <div class="form-group">
+                <label for="domain">Domain:</label>
+                <select id="domain">
+                    <option value="github.com">GitHub (github.com)</option>
+                </select>
+                <div class="help-text">Currently only GitHub is supported</div>
+            </div>
+
+            <div class="form-group">
+                <label for="repositoryPath">Repository Path:</label>
+                <input type="text" id="repositoryPath" placeholder="owner/repository-name" />
+                <div class="help-text">Enter your repository in the format: owner/repository-name (e.g., allenday/eas-attestor-github)</div>
+            </div>
+
+            <div class="form-group">
+                <label for="registrantAddress">Your Ethereum Address:</label>
+                <input type="text" id="registrantAddress" placeholder="0x..." />
+                <div class="help-text">The Ethereum address you'll use to sign the registration message</div>
+            </div>
+
+            <button class="btn" onclick="generateMessage()">Generate Message to Sign</button>
+        </div>
+
+        <div class="step" id="messageStep" style="display:none;">
+            <h3>Step 2: Sign This Message</h3>
+            <p>Copy this message and sign it with your Ethereum wallet:</p>
+            <div class="message-preview" id="messageToSign"></div>
+            <div class="help-text">Use MetaMask, a hardware wallet, or any Ethereum signing tool to sign this exact message.</div>
+        </div>
+
+        <div class="step" id="signatureStep" style="display:none;">
+            <h3>Step 3: Submit Registration</h3>
+            
+            <div class="form-group">
+                <label for="signature">Signature:</label>
+                <input type="text" id="signature" placeholder="0x..." />
+                <div class="help-text">Paste the signature you received from signing the message above</div>
+            </div>
+
+            <button class="btn" onclick="registerRepository()" id="registerBtn">Register Repository</button>
+        </div>
+
+        <div class="result" id="result"></div>
+    </div>
+
+    <script src="config.js"></script>
+    <script>
+        let currentMessage = '';
+        let currentTimestamp = 0;
+
+        function generateMessage() {
+            const domain = document.getElementById('domain').value;
+            const repositoryPath = document.getElementById('repositoryPath').value.trim();
+            const registrantAddress = document.getElementById('registrantAddress').value.trim();
+
+            if (!repositoryPath || !registrantAddress) {
+                showResult('Please fill in all required fields', true);
+                return;
+            }
+
+            if (!repositoryPath.includes('/') || repositoryPath.split('/').length !== 2) {
+                showResult('Repository path must be in format: owner/repository-name', true);
+                return;
+            }
+
+            if (!registrantAddress.startsWith('0x') || registrantAddress.length !== 42) {
+                showResult('Please enter a valid Ethereum address', true);
+                return;
+            }
+
+            currentTimestamp = Math.floor(Date.now() / 1000);
+            currentMessage = `I own the repository: ${repositoryPath}\nDomain: ${domain}\nRegistrant: ${registrantAddress}\nTimestamp: ${currentTimestamp}`;
+
+            document.getElementById('messageToSign').textContent = currentMessage;
+            document.getElementById('messageStep').style.display = 'block';
+            document.getElementById('signatureStep').style.display = 'block';
+            
+            hideResult();
+        }
+
+        async function registerRepository() {
+            const domain = document.getElementById('domain').value;
+            const repositoryPath = document.getElementById('repositoryPath').value.trim();
+            const registrantAddress = document.getElementById('registrantAddress').value.trim();
+            const signature = document.getElementById('signature').value.trim();
+
+            if (!signature) {
+                showResult('Please provide the signature', true);
+                return;
+            }
+
+            if (!signature.startsWith('0x')) {
+                showResult('Signature should start with 0x', true);
+                return;
+            }
+
+            const registerBtn = document.getElementById('registerBtn');
+            registerBtn.disabled = true;
+            registerBtn.textContent = 'Registering...';
+
+            try {
+                const response = await fetch('/register-repository', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        domain,
+                        repositoryPath,
+                        registrantAddress,
+                        signature
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showResult(`✅ Repository registered successfully!\n\nTransaction Hash: ${result.attestationTxHash}\nRepository: ${result.repository}\nRegistrant: ${result.registrant}\n\nYou can view this attestation on EAS Scan: https://base-sepolia.easscan.org/attestation/view/${result.attestationTxHash}`, false);
+                } else {
+                    showResult(`❌ Registration failed: ${result.error}`, true);
+                }
+            } catch (error) {
+                showResult(`❌ Error: ${error.message}`, true);
+            } finally {
+                registerBtn.disabled = false;
+                registerBtn.textContent = 'Register Repository';
+            }
+        }
+
+        function showResult(message, isError) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = message;
+            resultDiv.className = isError ? 'result error' : 'result';
+            resultDiv.style.display = 'block';
+            resultDiv.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function hideResult() {
+            document.getElementById('result').style.display = 'none';
+        }
+
+        // Pre-fill if on correct repo
+        if (window.location.hostname.includes('eas') || window.location.hostname.includes('attestor')) {
+            document.getElementById('repositoryPath').value = 'allenday/eas-attestor-github';
+        }
+    </script>
+</body>
+</html>

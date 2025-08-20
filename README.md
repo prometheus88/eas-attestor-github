@@ -4,8 +4,8 @@ A system for creating cryptographic attestations that link GitHub usernames to E
 
 ## 🚀 Live Demo
 
-- **Production**: https://eas.airitual.ai (Base mainnet)
-- **Staging**: https://staging.eas.airitual.ai (Base Sepolia testnet)
+- **Production**: https://attestor.cyberstorm.dev (Base mainnet)  
+- **Staging**: https://attestor.staging.cyberstorm.dev (Base Sepolia testnet)
 
 ## 🏗️ How It Works
 
@@ -137,16 +137,16 @@ task app:k8s:status:production
 
 | Environment | Network | URL | Purpose |
 |-------------|---------|-----|---------|
-| Staging | Base Sepolia | https://staging.eas.airitual.ai | Testing |
-| Production | Base mainnet | https://eas.airitual.ai | Live service |
+| Staging | Base Sepolia | https://attestor.staging.cyberstorm.dev | Testing |
+| Production | Base mainnet | https://attestor.cyberstorm.dev | Live service |
 
 ## 🧪 Testing
 
 ### Health Checks
 ```bash
 # Check validator service
-curl https://eas.airitual.ai/health
-curl https://staging.eas.airitual.ai/health
+curl https://attestor.cyberstorm.dev/health
+curl https://attestor.staging.cyberstorm.dev/health
 
 # Local development
 curl http://localhost:6001/health

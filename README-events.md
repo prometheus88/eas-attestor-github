@@ -4,8 +4,8 @@ A comprehensive system for creating on-chain attestations of GitHub contribution
 
 ## 🚀 Live Endpoints
 
-- **Production**: https://eas.airitual.ai (Base mainnet)
-- **Staging**: https://staging.eas.airitual.ai (Base Sepolia testnet)
+- **Production**: https://attestor.cyberstorm.dev (Base mainnet)
+- **Staging**: https://attestor.staging.cyberstorm.dev (Base Sepolia testnet)
 
 ## 🏗️ System Architecture
 
@@ -58,7 +58,7 @@ interface RepositoryRegistration {
 
 After registration, repository owner configures GitHub webhook:
 
-- **Payload URL**: `https://eas.airitual.ai/webhook`
+- **Payload URL**: `https://attestor.cyberstorm.dev/webhook`
 - **Content Type**: `application/json`
 - **Secret**: Derived secret returned from registration
 - **Events**: `Issues`, `Pull requests`, `Pull request reviews`
@@ -288,7 +288,7 @@ service ContributionService {
 
 #### Register Repository
 ```bash
-curl -X POST https://eas.airitual.ai/api/v1/repositories/register \
+curl -X POST https://attestor.cyberstorm.dev/api/v1/repositories/register \
   -H "Content-Type: application/json" \
   -d '{
     "repository": {
@@ -302,10 +302,10 @@ curl -X POST https://eas.airitual.ai/api/v1/repositories/register \
 #### Query Contributions
 ```bash
 # Get recent PR contributions for a repository
-curl "https://eas.airitual.ai/api/v1/contributions?repository=github.com/owner/repo&type=pull_request&limit=50"
+curl "https://attestor.cyberstorm.dev/api/v1/contributions?repository=github.com/owner/repo&type=pull_request&limit=50"
 
 # Get all contributions by an identity
-curl "https://eas.airitual.ai/api/v1/contributions/by-identity/0x742d35Cc6634C0532925a3b8D4AE6c53..."
+curl "https://attestor.cyberstorm.dev/api/v1/contributions/by-identity/0x742d35Cc6634C0532925a3b8D4AE6c53..."
 ```
 
 ## 🔒 Security Model

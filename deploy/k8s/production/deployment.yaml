@@ -1,37 +1,37 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: eas-validator
+  name: attestor
   namespace: production
   labels:
-    app: eas-validator
+    app: attestor
     environment: production
     network: base-mainnet
 spec:
   replicas: 3
   selector:
     matchLabels:
-      app: eas-validator
+      app: attestor
       environment: production
   template:
     metadata:
       labels:
-        app: eas-validator
+        app: attestor
         environment: production
         network: base-mainnet
     spec:
       containers:
-      - name: eas-validator
-        image: allenday/eas-validator:latest
+      - name: attestor
+        image: allenday/attestor:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
           name: http
         envFrom:
         - secretRef:
-            name: eas-validator-secrets
+            name: attestor-secrets
         - secretRef:
-            name: eas-validator-config
+            name: attestor-config
         resources:
           requests:
             memory: "512Mi"

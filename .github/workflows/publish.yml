@@ -46,7 +46,7 @@ jobs:
           BWS_PROJECT_ID: ${{ secrets.BWS_PROJECT_ID }}
         run: |
           # For GitHub Pages, use the Kubernetes production validator endpoint
-          EAS_VALIDATOR_URL="https://eas.airitual.ai"
+          EAS_VALIDATOR_URL="https://attestor.cyberstorm.dev"
           echo "🔧 Using Kubernetes validator URL: $EAS_VALIDATOR_URL"
           export EAS_VALIDATOR_URL
           

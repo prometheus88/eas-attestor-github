@@ -76,7 +76,7 @@ function extractMessages(protoContent) {
 function generateSchemaConfig(schemas) {
   const config = {
     generated: new Date().toISOString(),
-    note: "Auto-generated from proto/eas/schemas.proto - DO NOT EDIT MANUALLY",
+    note: "Auto-generated from src/main/proto/attestor/v1/attestor.proto - DO NOT EDIT MANUALLY",
     schemas: {}
   };
   
@@ -114,7 +114,7 @@ function generateDescription(messageName) {
  */
 function generateTypeScriptDefs(schemas) {
   let content = `// Auto-generated EAS schema types - DO NOT EDIT MANUALLY
-// Generated from proto/eas/schemas.proto on ${new Date().toISOString()}
+// Generated from src/main/proto/attestor/v1/attestor.proto on ${new Date().toISOString()}
 
 export interface EasSchemaConfig {
   generated: string;
@@ -154,7 +154,7 @@ export const SCHEMA_UIDS = {
  * Main execution
  */
 function main() {
-  const protoFile = path.join(__dirname, '../../../proto/eas/schemas.proto');
+  const protoFile = path.join(__dirname, '../../../src/main/proto/attestor/v1/attestor.proto');
   const outputDir = path.join(__dirname, '../../../src/generated');
   
   console.log('🔧 Generating EAS schemas from protobuf definitions...');

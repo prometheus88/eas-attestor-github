@@ -56,13 +56,17 @@ tasks:
       - echo "🔧 Copying generated TypeScript protobuf types..."
       - mkdir -p {{.VALIDATOR_BUILD_DIR}}/generated
       - cp -r src/generated/typescript {{.VALIDATOR_BUILD_DIR}}/generated/
+      - echo "📋 Copying schema configuration..."
+      - mkdir -p {{.VALIDATOR_BUILD_DIR}}/config
+      - cp -r src/main/config/* {{.VALIDATOR_BUILD_DIR}}/config/
       - echo "📦 Installing validator dependencies..."
       - cd {{.VALIDATOR_BUILD_DIR}} && npm install --only=production
-      - echo "✅ Validator build complete with HTML files and generated types"
+      - echo "✅ Validator build complete with HTML files, generated types, and config"
     sources:
       - "{{.VALIDATOR_SRC_DIR}}/**/*"
       - "{{.HTML_DIST_DIR}}/**/*"
       - "src/generated/typescript/**/*"
+      - "src/main/config/**/*"
     generates:
       - "{{.VALIDATOR_BUILD_DIR}}/**/*"
 
@@ -114,30 +118,30 @@ tasks:
     cmds:
       - echo "Building validator Docker image for linux/amd64..."
       - cp {{.VALIDATOR_SRC_DIR}}/Dockerfile {{.VALIDATOR_BUILD_DIR}}/
-      - docker buildx build --platform linux/amd64 -t allenday/eas-validator:latest {{.VALIDATOR_BUILD_DIR}}
-      - echo "Docker image built - allenday/eas-validator:latest (linux/amd64)"
+      - docker buildx build --platform linux/amd64 -t allenday/attestor:latest {{.VALIDATOR_BUILD_DIR}}
+      - echo "Docker image built - allenday/attestor:latest (linux/amd64)"
 
   validator:docker:push:
     desc: Push validator Docker image to DockerHub
     deps: [validator:docker:build]
     cmds:
       - echo "Pushing validator Docker image to DockerHub..."
-      - docker push allenday/eas-validator:latest
-      - echo "Docker image pushed - allenday/eas-validator:latest"
+      - docker push allenday/attestor:latest
+      - echo "Docker image pushed - allenday/attestor:latest"
 
   validator:docker:run:
     desc: Run validator container locally
     deps: [validator:docker:build]
     cmds:
       - echo "Starting validator container..."
-      - docker run --rm -p 5001:5001 --env-file {{.VALIDATOR_SRC_DIR}}/.env eas-validator:latest
+      - docker run --rm -p 5001:5001 --env-file {{.VALIDATOR_SRC_DIR}}/.env attestor:latest
 
   validator:docker:bg:
     desc: Run validator container in background
     deps: [validator:docker:build]
     cmds:
       - echo "Starting validator container in background..."
-      - docker run -d --name eas-validator -p 5001:5001 --env-file {{.VALIDATOR_SRC_DIR}}/.env eas-validator:latest
+      - docker run -d --name attestor -p 5001:5001 --env-file {{.VALIDATOR_SRC_DIR}}/.env attestor:latest
       - echo "Validator running at http://localhost:5001"
       - echo "Use 'task app:validator:docker:stop' to stop"
 
@@ -145,13 +149,13 @@ tasks:
     desc: Stop validator container
     cmds:
       - echo "Stopping validator container..."
-      - docker stop eas-validator || true
-      - docker rm eas-validator || true
+      - docker stop attestor || true
+      - docker rm attestor || true
 
   validator:docker:logs:
     desc: Show validator container logs
     cmds:
-      - docker logs -f eas-validator
+      - docker logs -f attestor
 
   validator:health:
     desc: Check validator health
@@ -277,8 +281,13 @@ tasks:
         kubectl --kubeconfig="$KUBECONFIG" create namespace staging --dry-run=client -o yaml | kubectl --kubeconfig="$KUBECONFIG" apply -f -
         kubectl --kubeconfig="$KUBECONFIG" create namespace production --dry-run=client -o yaml | kubectl --kubeconfig="$KUBECONFIG" apply -f -
         
-        echo "🔑 Applying SecretStore configuration..."
-        kubectl --kubeconfig="$KUBECONFIG" apply -f bitwarden-secretstore.yaml
+        echo "🔑 Checking SecretStore configuration..."
+        if ! kubectl --kubeconfig="$KUBECONFIG" get secretstore bitwarden-secretstore -n staging >/dev/null 2>&1; then
+          echo "Creating missing SecretStore..."
+          kubectl --kubeconfig="$KUBECONFIG" apply -f bitwarden-secretstore.yaml
+        else
+          echo "SecretStore already exists, skipping to avoid disruption"
+        fi
         
         echo "📋 Applying ClusterIssuer (prerequisite)..."
         kubectl --kubeconfig="$KUBECONFIG" apply -f deploy/k8s/staging/letsencrypt-clusterissuer.yaml
@@ -331,29 +340,29 @@ tasks:
   k8s:logs:staging:
     desc: Show logs from Kubernetes staging pods
     cmds:
-      - kubectl logs -n staging -l app=eas-validator --tail=100 -f
+      - kubectl logs -n staging -l app=attestor --tail=100 -f
 
   k8s:logs:production:
     desc: Show logs from Kubernetes production pods
     cmds:
-      - kubectl logs -n production -l app=eas-validator --tail=100 -f
+      - kubectl logs -n production -l app=attestor --tail=100 -f
 
   k8s:restart:staging:
     desc: Restart Kubernetes staging deployment
     cmds:
-      - kubectl rollout restart deployment/eas-validator -n staging
+      - kubectl rollout restart deployment/attestor -n staging
 
   k8s:restart:production:
     desc: Restart Kubernetes production deployment
     cmds:
-      - kubectl rollout restart deployment/eas-validator -n production
+      - kubectl rollout restart deployment/attestor -n production
 
   k8s:shell:staging:
     desc: Open shell in staging pod
     cmds:
-      - kubectl exec -it -n staging deployment/eas-validator -- /bin/bash
+      - kubectl exec -it -n staging deployment/attestor -- /bin/bash
 
   k8s:shell:production:
     desc: Open shell in production pod
     cmds:
-      - kubectl exec -it -n production deployment/eas-validator -- /bin/bash
+      - kubectl exec -it -n production deployment/attestor -- /bin/bash

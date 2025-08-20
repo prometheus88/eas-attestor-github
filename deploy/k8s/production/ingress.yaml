@@ -1,7 +1,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: eas-validator-production
+  name: attestor-production
   namespace: production
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
@@ -11,16 +11,16 @@ spec:
   ingressClassName: traefik
   tls:
   - hosts:
-    - eas.airitual.ai  # Replace with your production domain
+    - attestor.cyberstorm.dev
     secretName: production-tls
   rules:
-  - host: eas.airitual.ai  # Replace with your production domain
+  - host: attestor.cyberstorm.dev
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: eas-validator
+            name: attestor
             port:
               number: 80
