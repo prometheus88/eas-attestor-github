@@ -68,12 +68,31 @@ const CONFIG = {
         maxGistSize: process.env.MAX_GIST_SIZE || 100000,
         rateLimit: process.env.API_RATE_LIMIT || 10
     },
-    // Hardcoded repository allowlist for initial dogfooding
-    allowedRepositories: [
-        'allenday/eas-attestor-github',
-        'ethereum-attestation-service/eas-contracts'
-    ]
+    // Note: Repository allowlist replaced with EAS-based registration lookup
+    // allowedRepositories: [] // No longer used
 };
+
+// Structured logging configuration
+const LOG_LEVELS = {
+    ERROR: 0,
+    WARN: 1,
+    INFO: 2,
+    DEBUG: 3
+};
+
+const currentLogLevel = process.env.LOG_LEVEL ? LOG_LEVELS[process.env.LOG_LEVEL.toUpperCase()] : LOG_LEVELS.INFO;
+
+function log(level, message, data = {}) {
+    if (LOG_LEVELS[level] <= currentLogLevel) {
+        console.log(JSON.stringify({
+            timestamp: new Date().toISOString(),
+            level,
+            message,
+            service: 'eas-validator',
+            ...data
+        }));
+    }
+}
 
 // Error classes
 class ValidationError extends Error {
@@ -422,11 +441,6 @@ async function deriveWebhookSecret(repositoryFullName, registrantSignature) {
     }
 }
 
-// Check if repository is allowed for contribution tracking
-function isRepositoryAllowed(repositoryFullName) {
-    return CONFIG.allowedRepositories.includes(repositoryFullName);
-}
-
 // Filter GitHub events for high-value contributions
 function isHighValueContribution(eventType, action) {
     const highValueEvents = {
@@ -541,6 +555,137 @@ async function resolveContributorIdentity(githubUsername) {
             contributorAddress: '0x0000000000000000000000000000000000000000',
             identityAttestationUid: '0x0000000000000000000000000000000000000000000000000000000000000000'
         };
+    }
+}
+
+// Repository registration cache
+const repositoryCache = new Map(); // Simple in-memory cache
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// Resolve repository registration from EAS with caching
+async function resolveRepositoryRegistration(repositoryFullName) {
+    // Check cache first
+    const cacheKey = `repo:${repositoryFullName}`;
+    const cached = repositoryCache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+        log('INFO', 'Repository lookup cache hit', { repository: repositoryFullName, cached: true });
+        return cached.data;
+    }
+
+    log('INFO', 'Repository lookup cache miss, querying EAS', { repository: repositoryFullName, cached: false });
+    
+    try {
+        // Query EAS GraphQL endpoint for repository registration attestations
+        const easGraphqlUrl = process.env.NODE_ENV === 'production' 
+            ? 'https://base.easscan.org/graphql'
+            : 'https://base-sepolia.easscan.org/graphql';
+        
+        const repositorySchemaUid = SCHEMAS['repository-registration']?.uid;
+        
+        if (!repositorySchemaUid) {
+            throw new Error('Repository registration schema UID not found in configuration');
+        }
+        
+        const query = `
+        query GetRepositoryRegistrations($schemaId: String!) {
+          attestations(
+            where: {
+              schemaId: { equals: $schemaId }
+              revoked: { equals: false }
+            }
+            orderBy: { time: desc }
+            take: 50
+          ) {
+            id
+            attester  
+            recipient
+            decodedDataJson
+            time
+            revoked
+          }
+        }`;
+        
+        const variables = {
+            schemaId: repositorySchemaUid
+        };
+        
+        console.log(`📡 Querying EAS GraphQL for repository registration attestations...`);
+        
+        const response = await fetch(easGraphqlUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ query, variables })
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`GraphQL request failed: ${response.status}`, errorText);
+            throw new Error(`GraphQL request failed: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.errors) {
+            console.error(`GraphQL errors:`, result.errors);
+            throw new Error(`GraphQL errors: ${JSON.stringify(result.errors)}`);
+        }
+        
+        const attestations = result.data?.attestations || [];
+        console.log(`📋 Found ${attestations.length} repository registration attestations`);
+        
+        // Find attestation for this specific repository
+        for (const attestation of attestations) {
+            try {
+                const decodedData = JSON.parse(attestation.decodedDataJson);
+                
+                // Look for attestation with matching domain and path
+                const domainValue = decodedData.find(d => d.name === 'domain')?.value?.value;
+                const pathValue = decodedData.find(d => d.name === 'path')?.value?.value;
+                const registrantSignature = decodedData.find(d => d.name === 'registrantSignature')?.value?.value;
+                
+                const fullRepoName = `${domainValue}/${pathValue}`;
+                if (fullRepoName === `github.com/${repositoryFullName}`) {
+                    console.log(`✅ Found repository registration for ${repositoryFullName}:`, attestation.id);
+                    
+                    const registrationData = {
+                        isRegistered: true,
+                        registrationUid: attestation.id,
+                        registrantSignature: registrantSignature,
+                        registrantAddress: attestation.recipient
+                    };
+                    
+                    // Cache the result
+                    repositoryCache.set(cacheKey, {
+                        data: registrationData,
+                        timestamp: Date.now()
+                    });
+                    
+                    return registrationData;
+                }
+            } catch (parseError) {
+                console.warn(`Failed to parse repository registration data:`, parseError.message);
+                continue;
+            }
+        }
+        
+        console.log(`⚠️  No repository registration found for: ${repositoryFullName}`);
+        
+        // Cache negative result to avoid repeated queries
+        const noRegistrationData = { isRegistered: false };
+        repositoryCache.set(cacheKey, {
+            data: noRegistrationData,
+            timestamp: Date.now()
+        });
+        
+        return noRegistrationData;
+        
+    } catch (error) {
+        console.error(`Failed to resolve repository registration for ${repositoryFullName}:`, error.message);
+        
+        // Return negative result on error
+        return { isRegistered: false };
     }
 }
 
@@ -674,8 +819,8 @@ async function createContributionAttestation(contributionData) {
         // Resolve contributor Ethereum address and identity attestation UID
         const { contributorAddress, identityAttestationUid } = await resolveContributorIdentity(contributionData.contributor);
         
-        // TODO: Lookup repository registration UID (empty for now since we haven't registered repos)
-        const repositoryRegistrationUid = '0x0000000000000000000000000000000000000000000000000000000000000000';
+        // Use repository registration UID from contribution data
+        const repositoryRegistrationUid = contributionData.repositoryRegistrationUid || '0x0000000000000000000000000000000000000000000000000000000000000000';
 
         // Encode attestation data based on schema
         let encodedData;
@@ -780,10 +925,14 @@ async function processWebhookEvent(event) {
         throw new ValidationError('Invalid webhook payload: missing repository info', 'INVALID_PAYLOAD');
     }
     
-    // Check if repository is allowed
-    if (!isRepositoryAllowed(repository.full_name)) {
-        throw new ValidationError(`Repository ${repository.full_name} not in allowlist`, 'REPOSITORY_NOT_ALLOWED');
+    // Check if repository is registered (no hardcoded allowlist fallback)
+    const repositoryRegistration = await resolveRepositoryRegistration(repository.full_name);
+    if (!repositoryRegistration.isRegistered) {
+        throw new ValidationError(`Repository ${repository.full_name} not registered for contribution tracking`, 'REPOSITORY_NOT_REGISTERED');
     }
+
+    // Store registration data for later use
+    event.repositoryRegistration = repositoryRegistration;
     
     // Determine event type from webhook headers or payload
     let eventType, eventAction, eventUrl;
@@ -805,12 +954,13 @@ async function processWebhookEvent(event) {
         return { success: true, message: 'Event type not tracked' };
     }
     
-    console.log(`🔄 Processing contribution:`, {
+    log('INFO', 'Processing contribution', {
         repository: repository.full_name,
         contributor: sender?.login,
         type: eventType,
         action: eventAction,
-        url: eventUrl
+        url: eventUrl,
+        registered: true
     });
     
     // Create contribution data for EAS attestation
@@ -820,7 +970,8 @@ async function processWebhookEvent(event) {
         repository: repository.full_name,
         contributor: sender?.login,
         url: eventUrl,
-        commitHash: event.pull_request?.merge_commit_sha || event.pull_request?.head?.sha
+        commitHash: event.pull_request?.merge_commit_sha || event.pull_request?.head?.sha,
+        repositoryRegistrationUid: event.repositoryRegistration?.registrationUid
     };
     
     try {
@@ -877,18 +1028,48 @@ app.post('/webhook', async (req, res, next) => {
             });
         }
         
-        // For initial testing, skip signature validation if no signature provided
-        // TODO: Add proper signature validation once repository registration is implemented
-        if (signature && signature !== 'sha256=test') {
-            console.log('⚠️  Webhook signature validation skipped for testing');
-            // const isValid = verifyGitHubSignature(payload, signature, webhookSecret);
-            // if (!isValid) {
-            //     return res.status(401).json({
-            //         success: false,
-            //         error: 'Invalid webhook signature',
-            //         code: 'INVALID_SIGNATURE'
-            //     });
-            // }
+        // Validate GitHub HMAC signature
+        if (signature) {
+            const repoRegistration = await resolveRepositoryRegistration(webhookData.repository.full_name);
+            if (!repoRegistration?.isRegistered) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Repository not registered for contribution tracking',
+                    code: 'REPOSITORY_NOT_REGISTERED'
+                });
+            }
+            
+            const webhookSecret = await deriveWebhookSecret(
+                webhookData.repository.full_name, 
+                repoRegistration.registrantSignature
+            );
+            
+            const payload = JSON.stringify(webhookData);
+            const isValidSignature = verifyGitHubSignature(payload, signature, webhookSecret);
+            
+            if (!isValidSignature) {
+                log('WARN', 'Invalid webhook signature', { 
+                    repository: webhookData.repository.full_name,
+                    valid: false,
+                    hasSignature: true
+                });
+                return res.status(401).json({
+                    success: false,
+                    error: 'Invalid webhook signature',
+                    code: 'INVALID_SIGNATURE'
+                });
+            }
+            
+            log('INFO', 'Valid webhook signature', { 
+                repository: webhookData.repository.full_name,
+                valid: true,
+                hasSignature: true
+            });
+        } else {
+            log('WARN', 'No signature provided for webhook', { 
+                repository: webhookData.repository?.full_name,
+                hasSignature: false
+            });
         }
         
         console.log(`📥 GitHub webhook received: ${event} for ${webhookData.repository?.full_name}`);
