@@ -1,0 +1,26 @@
+{
+  "network": "base-sepolia",
+  "eas_contract": "0x4200000000000000000000000000000000000021",
+  "deployments": [
+    {
+      "contractName": "Identity",
+      "contractAddress": "0x5908d03537f64f34dfd07fe11bb4d025f6ed66ec764dfe8909112fec9e548f9d"
+    },
+    {
+      "contractName": "RepositoryRegistration",
+      "contractAddress": "0x177a7eaca93114a135e797d5f5d4927713122372d4931a0aed04ae3032abd880"
+    },
+    {
+      "contractName": "IssueContribution",
+      "contractAddress": "0x8deb8683ffa4ac68a034ccdab158f1318a7056d23d2236b2802114560f7a92ea"
+    },
+    {
+      "contractName": "PullRequestContribution",
+      "contractAddress": "0x94803ed78188b0ed8aeb62df64c4bf14e3c719ac0cd9ac26ca189e76437e1022"
+    },
+    {
+      "contractName": "ReviewContribution",
+      "contractAddress": "0xc4cf5219771d3bd4ee5ddeee49f76edc0911124c6a1d2698879c73b22492e658"
+    }
+  ]
+}

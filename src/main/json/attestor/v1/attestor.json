@@ -1,25 +1,30 @@
 {
-  "generated": "2025-08-19T18:00:00.000Z",
+  "generated": "2025-08-20T13:30:00.000Z",
   "note": "Manually extracted from src/main/proto/attestor/v1/attestor.proto",
   "schemas": {
+    "identity": {
+      "name": "Identity",
+      "definition": "string domain,string identifier,string ethereumAddress,string proofUrl,address validator,bytes validationSig",
+      "description": "Domain identity verification"
+    },
     "repository-registration": {
       "name": "RepositoryRegistration", 
-      "definition": "string domain,string path,address registrant,bytes registrantSignature,uint256 registeredAt",
+      "definition": "string domain,string path,address registrant,bytes registrantSignature",
       "description": "Repository registration for contribution monitoring"
     },
     "issue-contribution": {
       "name": "IssueContribution",
-      "definition": "string domain,string path,address contributor,bytes32 identityAttestationUid,bytes32 repositoryRegistrationUid,string url,uint256 occurredAt,uint32 eventType",
+      "definition": "string domain,string path,address contributor,bytes32 identityAttestationUid,bytes32 repositoryRegistrationUid,string url,string eventType",
       "description": "GitHub issue contribution attestation"
     },
     "pull-request-contribution": {
       "name": "PullRequestContribution", 
-      "definition": "string domain,string path,address contributor,bytes32 identityAttestationUid,bytes32 repositoryRegistrationUid,string url,uint256 occurredAt,uint32 eventType,string commitHash,bytes32[] linkedIssueUids",
+      "definition": "string domain,string path,address contributor,bytes32 identityAttestationUid,bytes32 repositoryRegistrationUid,string url,string eventType,string commitHash,bytes32[] linkedIssueUids",
       "description": "GitHub pull request contribution attestation"
     },
     "review-contribution": {
       "name": "ReviewContribution",
-      "definition": "string domain,string path,address contributor,bytes32 identityAttestationUid,bytes32 repositoryRegistrationUid,string url,uint256 occurredAt,uint32 eventType,bytes32 reviewedPrUid",
+      "definition": "string domain,string path,address contributor,bytes32 identityAttestationUid,bytes32 repositoryRegistrationUid,string url,string eventType,bytes32 reviewedPrUid",
       "description": "GitHub code review contribution attestation"
     }
   }

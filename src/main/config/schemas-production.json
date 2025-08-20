@@ -1,0 +1,26 @@
+{
+  "network": "base-mainnet",
+  "eas_contract": "0x4200000000000000000000000000000000000021",
+  "deployments": [
+    {
+      "contractName": "Identity",
+      "contractAddress": "TO_BE_DEPLOYED"
+    },
+    {
+      "contractName": "RepositoryRegistration",
+      "contractAddress": "TO_BE_DEPLOYED"
+    },
+    {
+      "contractName": "IssueContribution",
+      "contractAddress": "TO_BE_DEPLOYED"
+    },
+    {
+      "contractName": "PullRequestContribution",
+      "contractAddress": "TO_BE_DEPLOYED"
+    },
+    {
+      "contractName": "ReviewContribution",
+      "contractAddress": "TO_BE_DEPLOYED"
+    }
+  ]
+}

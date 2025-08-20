@@ -2,7 +2,6 @@ syntax = "proto3";
 
 package attestor.v1;
 
-import "google/protobuf/timestamp.proto";
 import "google/protobuf/empty.proto";
 
 // Domain registry - represents a platform/service
@@ -22,8 +21,9 @@ message Identity {
   Domain domain = 1;              // Points to domain
   string identifier = 2;          // username on that domain
   string ethereum_address = 3;    // 0x...
-  string proof_url = 4;           // verification proof URL
-  google.protobuf.Timestamp verified_at = 5;
+  string proof_url = 4;           // Verification proof URL (e.g., gist URL)
+  string validator = 5;           // Ethereum address of the validator
+  bytes validation_sig = 6;       // Cryptographic signature validating the identity
 }
 
 // Issue-related events
@@ -60,9 +60,8 @@ message Contribution {
   Identity identity = 1;          // Points to identity
   Repository repository = 2;      // Points to repository
   string url = 3;                 // Platform-specific URL to the contribution
-  google.protobuf.Timestamp occurred_at = 4;
-  bytes identity_attestation_uid = 5;     // UID of the Identity attestation for composability
-  bytes repository_registration_uid = 6; // UID of the RepositoryRegistration attestation
+  bytes identity_attestation_uid = 4;     // UID of the Identity attestation for composability
+  bytes repository_registration_uid = 5; // UID of the RepositoryRegistration attestation
 }
 
 // Issue contribution - specific to issue lifecycle
@@ -93,7 +92,6 @@ message RepositoryRegistration {
   Repository repository = 1;       // The repository to monitor
   Identity registrant = 2;         // Identity of the registrant (GitHub user -> ETH address)
   bytes registrant_signature = 3;  // Signature of "owner/repo" by registrant
-  google.protobuf.Timestamp registered_at = 4;
   // Note: webhook_secret derived as keccak256(repository.full_name + registrant_signature + validator_private_key)
 }
 
@@ -103,7 +101,6 @@ message WebhookEvent {
   WebhookEventType event_type = 2; // Type of GitHub webhook event
   string action = 3;              // "opened", "closed", "submitted", etc.
   string raw_payload = 4;         // Original GitHub JSON payload
-  google.protobuf.Timestamp received_at = 5;
 }
 
 // RPC Services
@@ -152,10 +149,8 @@ message ProcessWebhookResponse {
 message GetContributionsRequest {
   Repository repository = 1;
   Identity identity = 2;
-  google.protobuf.Timestamp start_time = 3;
-  google.protobuf.Timestamp end_time = 4;
-  uint32 limit = 5;
-  uint32 offset = 6;
+  uint32 limit = 3;
+  uint32 offset = 4;
 }
 
 message GetContributionsResponse {
