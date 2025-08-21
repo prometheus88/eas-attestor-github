@@ -10,18 +10,65 @@ vars:
 tasks:
   # Build tasks (application-specific only)
   build:
-    desc: Build all application components (dApp and validator)
-    deps: [build:schemas, build:dist, build:validator]
+    desc: Build all application components (dApp, server, and validator)
+    deps: [build:schemas, build:server, build:dist, build:validator]
 
   build:schemas:
     desc: Generate TypeScript types and EAS schemas from protobuf definitions
     cmds:
       - task protobuf:gen-typescript
-      - echo "✅ TypeScript protobuf types generated"
+      - task: build:openapi
+      - echo "✅ TypeScript protobuf types and OpenAPI docs generated"
     sources:
       - src/main/proto/**/*.proto
     generates:
       - src/generated/typescript/**/*.ts
+      - src/generated/openapi/**/*.json
+
+  build:openapi:
+    desc: Generate OpenAPI/Swagger documentation from protobuf services
+    cmds:
+      - echo "📚 Generating OpenAPI documentation..."
+      - mkdir -p src/generated/openapi
+      - |
+        cd src/main/proto && buf generate --path attestor/v1/services.proto --template ../../../buf.gen.openapi.yaml --include-imports
+      - echo "✅ OpenAPI documentation generated"
+    sources:
+      - src/main/proto/**/*.proto
+    generates:
+      - src/generated/openapi/**/*.json
+
+  build:server:
+    desc: Generate Express server from OpenAPI specification
+    deps: [build:openapi]
+    cmds:
+      - echo "🚀 Generating Express server from OpenAPI spec..."
+      - mkdir -p src/generated/server
+      - |
+        openapi-generator-cli generate \
+          -i src/generated/openapi/attestor_api.swagger.json \
+          -g nodejs-express-server \
+          -o src/generated/server \
+          --additional-properties=packageName=attestor-api-server,packageVersion=1.0.0,modelPropertyNaming=camelCase,enumPropertyNaming=camelCase
+      - echo "🔧 Wiring actual service implementations..."
+      - cp src/main/typescript/services/rest/SignServiceImpl.js src/generated/server/services/SignServiceService.js
+      - cp src/main/typescript/services/rest/AttestServiceImpl.js src/generated/server/services/AttestServiceService.js
+      - cp src/main/typescript/services/rest/ContributionServiceImpl.js src/generated/server/services/ContributionServiceService.js
+      - echo "🔧 Fixing port configuration to use PORT environment variable..."
+      - node scripts/task/app/fix-server-config.cjs
+      - echo "🔧 Adding uint64 format validator to express server..."
+      - node scripts/task/app/fix-express-server.cjs
+      - echo "🔒 Adding security headers to Express server..."
+      - node scripts/task/app/add-security-headers.cjs
+      - echo "🔧 Adding PascalCase exports for OpenAPI validator..."
+      - node scripts/task/app/fix-all-controller-exports.cjs
+      - echo "📦 Installing server dependencies..."
+      - node scripts/task/app/install-server-deps.cjs
+      - echo "✅ Express server generated and wired"
+    sources:
+      - src/generated/openapi/**/*.json
+    generates:
+      - src/generated/server/**/*
 
 
   build:dist:
@@ -29,6 +76,12 @@ tasks:
     cmds:
       - mkdir -p {{.HTML_DIST_DIR}}
       - cp -r src/main/html/* {{.HTML_DIST_DIR}}/
+      - echo "📋 Copying JSON schema files..."
+      - mkdir -p {{.HTML_DIST_DIR}}/json/attestor/v1
+      - cp -r src/main/json/* {{.HTML_DIST_DIR}}/json/
+      - echo "📋 Copying config files..."
+      - mkdir -p {{.HTML_DIST_DIR}}/config
+      - cp -r src/main/config/* {{.HTML_DIST_DIR}}/config/
       - |
         # Inject build-time environment variables
         if [ -n "$EAS_VALIDATOR_URL" ]; then
@@ -41,6 +94,8 @@ tasks:
     deps: []
     sources:
       - src/main/html/**/*
+      - src/main/json/**/*
+      - src/main/config/**/*
     generates:
       - "{{.HTML_DIST_DIR}}/**/*"
 
@@ -53,15 +108,28 @@ tasks:
       - cp -r {{.VALIDATOR_SRC_DIR}}/* {{.VALIDATOR_BUILD_DIR}}/
       - echo "📄 Copying HTML files to validator build..."
       - cp -r {{.HTML_DIST_DIR}} {{.VALIDATOR_BUILD_DIR}}/html/
+      - echo "📋 Copying config and JSON files to HTML root for static serving..."
+      - cp -r {{.HTML_DIST_DIR}}/config {{.VALIDATOR_BUILD_DIR}}/html/
+      - cp -r {{.HTML_DIST_DIR}}/json {{.VALIDATOR_BUILD_DIR}}/html/
+      - echo "📋 Creating environment-agnostic schema config..."
+      - |
+        if [ "${ENVIRONMENT:-staging}" = "production" ]; then
+          cp {{.HTML_DIST_DIR}}/config/schemas-production.json {{.VALIDATOR_BUILD_DIR}}/html/config/schemas.json
+        else
+          cp {{.HTML_DIST_DIR}}/config/schemas-staging.json {{.VALIDATOR_BUILD_DIR}}/html/config/schemas.json
+        fi
       - echo "🔧 Copying generated TypeScript protobuf types..."
       - mkdir -p {{.VALIDATOR_BUILD_DIR}}/generated
       - cp -r src/generated/typescript {{.VALIDATOR_BUILD_DIR}}/generated/
+      - echo "📚 Copying OpenAPI documentation..."
+      - mkdir -p {{.VALIDATOR_BUILD_DIR}}/html/docs
+      - cp -r src/generated/openapi/* {{.VALIDATOR_BUILD_DIR}}/html/docs/ 2>/dev/null || echo "No OpenAPI docs found"
       - echo "📋 Copying schema configuration..."
       - mkdir -p {{.VALIDATOR_BUILD_DIR}}/config
       - cp -r src/main/config/* {{.VALIDATOR_BUILD_DIR}}/config/
       - echo "📦 Installing validator dependencies..."
       - cd {{.VALIDATOR_BUILD_DIR}} && npm install --only=production
-      - echo "✅ Validator build complete with HTML files, generated types, and config"
+      - echo "✅ Validator build complete with HTML files, generated types, docs, and config"
     sources:
       - "{{.VALIDATOR_SRC_DIR}}/**/*"
       - "{{.HTML_DIST_DIR}}/**/*"
@@ -72,9 +140,25 @@ tasks:
 
   # Application tests (TypeScript)
   test:typescript:
-    desc: Run TypeScript application tests
+    desc: Run TypeScript unit tests
     cmds:
       - npm test
+
+  test:integration:
+    desc: Run local integration tests (service orchestration)
+    cmds:
+      - npm test -- src/test/typescript/integration/service-orchestration.test.ts
+
+  test:server:integration:
+    desc: Run server integration tests (requires local server)
+    cmds:
+      - echo "🚀 Starting validator service for integration testing..."
+      - ./scripts/task/app/validator-bg.sh 6001
+      - echo "🧪 Running server integration tests..."
+      - VALIDATOR_URL=http://localhost:6001 npm test -- src/test/typescript/integration/server-integration.test.ts || (./scripts/task/app/validator-stop.sh && exit 1)
+      - echo "🛑 Stopping validator service..."
+      - ./scripts/task/app/validator-stop.sh
+      - echo "✅ Server integration tests complete!"
 
 
   # Development tasks
@@ -95,6 +179,19 @@ tasks:
     cmds:
       - ./scripts/task/app/serve-bg.sh
 
+  serve:docs:
+    desc: Serve OpenAPI documentation with Swagger UI
+    deps: [build:openapi]
+    cmds:
+      - echo "📚 Starting API documentation server..."
+      - |
+        if command -v swagger-ui-serve &> /dev/null; then
+          swagger-ui-serve src/generated/openapi/attestor_api.swagger.json
+        else
+          echo "📚 API docs available at http://localhost:8082"
+          cd src/generated/openapi && python3 -m http.server 8082
+        fi
+
   # Validator service tasks
   validator:install:
     desc: Install validator dependencies
@@ -111,6 +208,16 @@ tasks:
       - echo "Starting validator in development mode..."
       - echo "Make sure to copy .env.example to .env and set VALIDATOR_PRIVATE_KEY"
       - node index.js
+
+  validator:bg:
+    desc: Start validator service in background for testing
+    cmds:
+      - ./scripts/task/app/validator-bg.sh 6001
+
+  validator:stop:
+    desc: Stop background validator service
+    cmds:
+      - ./scripts/task/app/validator-stop.sh
 
   validator:docker:build:
     desc: Build validator Docker image for x86_64 architecture
@@ -260,7 +367,7 @@ tasks:
       - npm install
       - mkdir -p {{.BUILD_DIR}} {{.HTML_DIST_DIR}} {{.VALIDATOR_BUILD_DIR}} deployments state
       - task app:validator:install
-      - task build
+      - task app:build
       - echo "✅ Application setup complete!"
 
 
