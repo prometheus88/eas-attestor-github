@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package attestor.v1;
 
-import "google/protobuf/empty.proto";
+option go_package = "github.com/allenday/eas-attestor-github/gen/attestor/v1";
 
 // Domain registry - represents a platform/service
 message Domain {
@@ -23,7 +23,7 @@ message Identity {
   string ethereum_address = 3;    // 0x...
   string proof_url = 4;           // Verification proof URL (e.g., gist URL)
   string validator = 5;           // Ethereum address of the validator
-  bytes validation_sig = 6;       // Cryptographic signature validating the identity
+  bytes validation_signature = 6;       // Cryptographic signature validating the identity
 }
 
 // Issue-related events
@@ -92,6 +92,9 @@ message RepositoryRegistration {
   Repository repository = 1;       // The repository to monitor
   Identity registrant = 2;         // Identity of the registrant (GitHub user -> ETH address)
   bytes registrant_signature = 3;  // Signature of "owner/repo" by registrant
+  string proof_url = 4;            // GitHub issue URL proving repository ownership
+  string validator = 5;            // Ethereum address of the validator
+  bytes validation_signature = 6;        // Cryptographic signature validating the repository ownership
   // Note: webhook_secret derived as keccak256(repository.full_name + registrant_signature + validator_private_key)
 }
 
@@ -103,82 +106,4 @@ message WebhookEvent {
   string raw_payload = 4;         // Original GitHub JSON payload
 }
 
-// RPC Services
-service ContributionService {
-  // Repository management (new on-chain approach)
-  rpc RegisterRepository(RepositoryRegistration) returns (RegisterRepositoryResponse);
-  rpc GetWebhookSecret(Repository) returns (WebhookSecretResponse);
-  rpc ListRegisteredRepositories(google.protobuf.Empty) returns (ListRegisteredRepositoriesResponse);
-  
-  // Webhook processing
-  rpc ProcessWebhook(WebhookEvent) returns (ProcessWebhookResponse);
-  
-  // Contribution queries
-  rpc GetContributions(GetContributionsRequest) returns (GetContributionsResponse);
-  rpc GetContributionsByIdentity(Identity) returns (GetContributionsResponse);
-  rpc GetContributionsByRepository(Repository) returns (GetContributionsResponse);
-  
-  // Referential lookups
-  rpc GetContributionsByIdentityUid(GetContributionsByUidRequest) returns (GetContributionsResponse);
-  rpc GetContributionsByRepositoryUid(GetContributionsByUidRequest) returns (GetContributionsResponse);
-  rpc GetLinkedIssues(GetLinkedIssuesRequest) returns (GetLinkedIssuesResponse);
-  rpc GetPullRequestReviews(GetPullRequestReviewsRequest) returns (GetPullRequestReviewsResponse);  
-}
-
-// Request/Response messages
-message RegisterRepositoryResponse {
-  string attestation_uid = 1;      // EAS attestation UID for the registration
-  string webhook_secret = 2;       // Derived webhook secret for GitHub configuration
-}
-
-message WebhookSecretResponse {
-  string webhook_secret = 1;       // Derived webhook secret for this repository
-  bool registered = 2;            // Whether repository is registered
-}
-
-message ListRegisteredRepositoriesResponse {
-  repeated RepositoryRegistration repositories = 1;
-}
-
-message ProcessWebhookResponse {
-  bool processed = 1;
-  string attestation_uid = 2;      // EAS attestation UID if created
-  string error = 3;               // Error message if failed
-}
-
-message GetContributionsRequest {
-  Repository repository = 1;
-  Identity identity = 2;
-  uint32 limit = 3;
-  uint32 offset = 4;
-}
-
-message GetContributionsResponse {
-  repeated IssueContribution issues = 1;
-  repeated PullRequestContribution pull_requests = 2;
-  repeated ReviewContribution reviews = 3;
-  uint32 total_count = 4;
-}
-
-// Referential lookup request/response messages
-message GetContributionsByUidRequest {
-  bytes attestation_uid = 1;       // UID of the identity or repository attestation
-  uint32 limit = 2;
-  uint32 offset = 3;
-}
-
-message GetLinkedIssuesRequest {
-  bytes pr_attestation_uid = 1;    // UID of the PR attestation
-}
-
-message GetLinkedIssuesResponse {
-  repeated IssueContribution issues = 1;
-}
-
-message GetPullRequestReviewsRequest {
-  bytes pr_attestation_uid = 1;    // UID of the PR attestation  
-}
-
-message GetPullRequestReviewsResponse {
-  repeated ReviewContribution reviews = 1;
-} 
+ 

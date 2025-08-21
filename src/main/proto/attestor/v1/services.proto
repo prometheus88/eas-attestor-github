@@ -1,0 +1,226 @@
+syntax = "proto3";
+
+package attestor.v1;
+
+option go_package = "github.com/allenday/eas-attestor-github/gen/attestor/v1";
+
+import "google/protobuf/empty.proto";
+import "attestor/v1/messages.proto";
+
+// Generic attestation service - schema-driven EAS operations
+service AttestService {
+  // Create attestation using dynamic schema encoding
+  rpc CreateAttestation(CreateAttestationRequest) returns (CreateAttestationResponse);
+  
+  // Get schema information
+  rpc GetSchemas(google.protobuf.Empty) returns (GetSchemasResponse);
+  
+  // Get specific schema definition
+  rpc GetSchema(GetSchemaRequest) returns (GetSchemaResponse);
+}
+
+// Server-side signing service for automated operations
+service SignService {
+  // Server signs attestation using validator private key
+  rpc ServerSignAttestation(ServerSignAttestationRequest) returns (ServerSignAttestationResponse);
+  
+  // Verify signatures
+  rpc VerifySignature(VerifySignatureRequest) returns (VerifySignatureResponse);
+  
+  // Get server's public address
+  rpc GetServerAddress(google.protobuf.Empty) returns (GetServerAddressResponse);
+}
+
+// Business logic service for contribution workflows
+service ContributionService {
+  // Repository management
+  rpc RegisterRepository(RepositoryRegistration) returns (RegisterRepositoryResponse);
+  rpc GetWebhookSecret(Repository) returns (WebhookSecretResponse);
+  rpc ListRegisteredRepositories(google.protobuf.Empty) returns (ListRegisteredRepositoriesResponse);
+  
+  // Identity management  
+  rpc RegisterIdentity(Identity) returns (RegisterIdentityResponse);
+  rpc ValidateIdentity(ValidateIdentityRequest) returns (ValidateIdentityResponse);
+  
+  // Webhook processing
+  rpc ProcessWebhook(WebhookEvent) returns (ProcessWebhookResponse);
+  
+  // Contribution queries
+  rpc GetContributions(GetContributionsRequest) returns (GetContributionsResponse);
+  rpc GetContributionsByIdentity(Identity) returns (GetContributionsResponse);
+  rpc GetContributionsByRepository(Repository) returns (GetContributionsResponse);
+  
+  // Referential lookups
+  rpc GetContributionsByIdentityUid(GetContributionsByUidRequest) returns (GetContributionsResponse);
+  rpc GetContributionsByRepositoryUid(GetContributionsByUidRequest) returns (GetContributionsResponse);
+  rpc GetLinkedIssues(GetLinkedIssuesRequest) returns (GetLinkedIssuesResponse);
+  rpc GetPullRequestReviews(GetPullRequestReviewsRequest) returns (GetPullRequestReviewsResponse);
+}
+
+// Attest Service Messages
+message CreateAttestationRequest {
+  string schema_type = 1;                    // e.g., "repository-registration", "identity"
+  map<string, AttestationValue> data = 2;    // Dynamic key-value data matching schema
+  string recipient = 3;                      // Ethereum address (optional, defaults to attester)
+  bool revocable = 4;                        // Whether attestation can be revoked
+  uint64 expiration_time = 5;                // Unix timestamp (0 = no expiration)
+}
+
+message StringArray {
+  repeated string values = 1;
+}
+
+message BytesArray {
+  repeated bytes values = 1;
+}
+
+message AttestationValue {
+  oneof value {
+    string string_value = 1;
+    bytes bytes_value = 2;
+    string address_value = 3;        // Ethereum address as string
+    uint64 uint64_value = 4;
+    bool bool_value = 5;
+    StringArray string_array = 6;
+    BytesArray bytes_array = 7;
+  }
+}
+
+message CreateAttestationResponse {
+  string attestation_uid = 1;       // EAS attestation UID
+  string transaction_hash = 2;      // Blockchain transaction hash
+  string attester = 3;              // Address that created the attestation
+}
+
+message GetSchemasResponse {
+  map<string, SchemaDefinition> schemas = 1;
+  repeated SchemaDeployment deployments = 2;
+}
+
+message SchemaDefinition {
+  string name = 1;
+  string definition = 2;      // EAS schema definition string
+  string description = 3;
+}
+
+message SchemaDeployment {
+  string contract_name = 1;
+  string contract_address = 2;    // Schema UID
+}
+
+message GetSchemaRequest {
+  string schema_type = 1;
+}
+
+message GetSchemaResponse {
+  SchemaDefinition schema = 1;
+  SchemaDeployment deployment = 2;
+}
+
+// Sign Service Messages  
+message ServerSignAttestationRequest {
+  string schema_type = 1;
+  map<string, AttestationValue> data = 2;
+  string recipient = 3;
+  bool revocable = 4;
+  uint64 expiration_time = 5;
+}
+
+message ServerSignAttestationResponse {
+  string attestation_uid = 1;
+  string transaction_hash = 2;
+  string attester = 3;              // Server's address
+}
+
+message VerifySignatureRequest {
+  string message = 1;
+  string signature = 2;             // Hex-encoded signature
+  string expected_signer = 3;       // Expected Ethereum address (optional)
+}
+
+message VerifySignatureResponse {
+  bool valid = 1;
+  string signer_address = 2;        // Recovered address
+  string error = 3;                 // Error message if invalid
+}
+
+message GetServerAddressResponse {
+  string address = 1;               // Server's Ethereum address
+}
+
+// Contribution Service Messages  
+message RegisterRepositoryResponse {
+  string attestation_uid = 1;       // EAS attestation UID for the registration
+  string webhook_secret = 2;        // Derived webhook secret for GitHub configuration
+}
+
+message WebhookSecretResponse {
+  string webhook_secret = 1;        // Derived webhook secret for this repository
+  bool registered = 2;             // Whether repository is registered
+}
+
+message ListRegisteredRepositoriesResponse {
+  repeated RepositoryRegistration repositories = 1;
+}
+
+message RegisterIdentityResponse {
+  string attestation_uid = 1;
+  string validation_signature = 2;        // Server's validation signature
+  string validator = 3;             // Server's address
+}
+
+message ValidateIdentityRequest {
+  string github_username = 1;
+  string gist_url = 2;
+  string ethereum_address = 3;
+}
+
+message ValidateIdentityResponse {
+  bool valid = 1;
+  string validation_signature = 2;
+  string validator = 3;
+  string error = 4;
+}
+
+message ProcessWebhookResponse {
+  bool processed = 1;
+  string attestation_uid = 2;       // EAS attestation UID if created
+  string error = 3;                // Error message if failed
+}
+
+message GetContributionsRequest {
+  Repository repository = 1;
+  Identity identity = 2;
+  uint32 limit = 3;
+  uint32 offset = 4;
+}
+
+message GetContributionsResponse {
+  repeated IssueContribution issues = 1;
+  repeated PullRequestContribution pull_requests = 2;
+  repeated ReviewContribution reviews = 3;
+  uint32 total_count = 4;
+}
+
+// Referential lookup request/response messages
+message GetContributionsByUidRequest {
+  bytes attestation_uid = 1;       // UID of the identity or repository attestation
+  uint32 limit = 2;
+  uint32 offset = 3;
+}
+
+message GetLinkedIssuesRequest {
+  bytes pr_attestation_uid = 1;    // UID of the PR attestation
+}
+
+message GetLinkedIssuesResponse {
+  repeated IssueContribution issues = 1;
+}
+
+message GetPullRequestReviewsRequest {
+  bytes pr_attestation_uid = 1;    // UID of the PR attestation  
+}
+
+message GetPullRequestReviewsResponse {
+  repeated ReviewContribution reviews = 1;
+}
