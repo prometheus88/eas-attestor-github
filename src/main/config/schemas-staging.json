@@ -4,11 +4,11 @@
   "deployments": [
     {
       "contractName": "Identity",
-      "contractAddress": "0x5908d03537f64f34dfd07fe11bb4d025f6ed66ec764dfe8909112fec9e548f9d"
+      "contractAddress": "0x2354c5657eeae7cbf39d127661439228b45e67b8637c51ea151d297d86ed0191"
     },
     {
       "contractName": "RepositoryRegistration",
-      "contractAddress": "0x177a7eaca93114a135e797d5f5d4927713122372d4931a0aed04ae3032abd880"
+      "contractAddress": "0x01fa5fccf38b95fb6ef4d35cd2c7c985c5bb1777618c8895a059f3f62e3891d6"
     },
     {
       "contractName": "IssueContribution",
