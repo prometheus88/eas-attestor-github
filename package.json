@@ -45,5 +45,12 @@
     "ts-jest": "^29.4.1",
     "ts-protoc-gen": "^0.15.0",
     "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
+    "ethers": "^6.15.0",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0"
   }
 }
