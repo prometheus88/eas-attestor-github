@@ -22,11 +22,11 @@ class ContributionService {
     }
 
     /**
-     * ValidateGist - Validate GitHub gist for identity registration
+     * ValidateIdentity - Validate GitHub gist for identity registration
      * @param {Object} call - gRPC call object with gist validation data
      * @param {Function} callback - gRPC callback function
      */
-    async ValidateGist(call, callback) {
+    async ValidateIdentity(call, callback) {
         try {
             const { github_username, gist_url, ethereum_address } = call.request;
 
@@ -526,6 +526,307 @@ class ContributionService {
                 contributorAddress: '0x0000000000000000000000000000000000000000',
                 identityAttestationUid: '0x0000000000000000000000000000000000000000000000000000000000000000'
             };
+        }
+    }
+
+    /**
+     * RegisterRepository - Register a repository for contribution tracking
+     * @param {Object} call - gRPC call object
+     * @param {Function} callback - gRPC callback function
+     */
+    async RegisterRepository(call, callback) {
+        try {
+            const { repository, registrant, registrant_signature, proof_url } = call.request;
+            
+            console.log('📝 Registering repository:', repository);
+
+            // TODO: Implement repository registration logic
+            const mockAttestationUid = ethers.keccak256(ethers.toUtf8Bytes(
+                JSON.stringify({ repository, registrant, timestamp: Date.now() })
+            ));
+            const mockWebhookSecret = ethers.keccak256(ethers.toUtf8Bytes(
+                `webhook-${repository.domain.domain}/${repository.path}-${Date.now()}`
+            ));
+
+            callback(null, {
+                attestation_uid: mockAttestationUid,
+                webhook_secret: mockWebhookSecret
+            });
+
+        } catch (error) {
+            console.error('❌ RegisterRepository failed:', error.message);
+            callback(error, null);
+        }
+    }
+
+    /**
+     * RegisterIdentity - Register an identity attestation
+     * @param {Object} call - gRPC call object
+     * @param {Function} callback - gRPC callback function
+     */
+    async RegisterIdentity(call, callback) {
+        try {
+            const { domain, identifier, ethereum_address, proof_url } = call.request;
+            
+            console.log('👤 Registering identity:', { domain: domain.domain, identifier, ethereum_address });
+
+            // TODO: Implement identity registration logic
+            const mockAttestationUid = ethers.keccak256(ethers.toUtf8Bytes(
+                JSON.stringify({ domain, identifier, ethereum_address, timestamp: Date.now() })
+            ));
+            const mockValidationSignature = ethers.keccak256(ethers.toUtf8Bytes(
+                `validation-${identifier}-${ethereum_address}-${Date.now()}`
+            ));
+
+            callback(null, {
+                attestation_uid: mockAttestationUid,
+                validation_signature: mockValidationSignature,
+                validator: '0x742d35Cc6634C0532925a3b8D98d00F932E6B9c2' // Mock validator address
+            });
+
+        } catch (error) {
+            console.error('❌ RegisterIdentity failed:', error.message);
+            callback(error, null);
+        }
+    }
+
+    /**
+     * ProcessWebhook - Process GitHub webhook events
+     * @param {Object} call - gRPC call object  
+     * @param {Function} callback - gRPC callback function
+     */
+    async ProcessWebhook(call, callback) {
+        // Delegate to existing ProcessContribution method
+        return this.ProcessContribution(call, callback);
+    }
+
+    /**
+     * GetWebhookSecret - Get webhook secret for a repository
+     * @param {Object} call - gRPC call object
+     * @param {Function} callback - gRPC callback function
+     */
+    async GetWebhookSecret(call, callback) {
+        try {
+            const { repository } = call.request;
+            const repositoryPath = `${repository.domain.domain}/${repository.path}`;
+            
+            console.log('🔑 Getting webhook secret for:', repositoryPath);
+
+            // TODO: Implement actual webhook secret derivation
+            const mockSecret = ethers.keccak256(ethers.toUtf8Bytes(
+                `secret-${repositoryPath}-${Date.now()}`
+            ));
+
+            callback(null, {
+                webhook_secret: mockSecret,
+                registered: this.allowedRepositories.includes(repository.path)
+            });
+
+        } catch (error) {
+            console.error('❌ GetWebhookSecret failed:', error.message);
+            callback(error, null);
+        }
+    }
+
+    /**
+     * ListRegisteredRepositories - List all registered repositories
+     * @param {Object} call - gRPC call object
+     * @param {Function} callback - gRPC callback function
+     */
+    async ListRegisteredRepositories(call, callback) {
+        try {
+            console.log('📋 Listing registered repositories');
+
+            // TODO: Implement actual repository listing
+            const mockRepositories = this.allowedRepositories.map(repoPath => ({
+                repository: {
+                    domain: { name: 'GitHub', domain: 'github.com' },
+                    path: repoPath
+                },
+                registrant: {
+                    domain: { name: 'GitHub', domain: 'github.com' },
+                    identifier: repoPath.split('/')[0],
+                    ethereum_address: '0x742d35Cc6634C0532925a3b8D98d00F932E6B9c2'
+                }
+            }));
+
+            callback(null, {
+                repositories: mockRepositories
+            });
+
+        } catch (error) {
+            console.error('❌ ListRegisteredRepositories failed:', error.message);
+            callback(error, null);
+        }
+    }
+
+    /**
+     * GetContributions - Get contributions with filters
+     * @param {Object} call - gRPC call object
+     * @param {Function} callback - gRPC callback function
+     */
+    async GetContributions(call, callback) {
+        try {
+            const { repository, identity, limit = 10, offset = 0 } = call.request;
+            
+            console.log('🔍 Getting contributions with filters:', { repository, identity, limit, offset });
+
+            // TODO: Implement actual contribution querying
+            callback(null, {
+                issues: [],
+                pull_requests: [],
+                reviews: [],
+                total_count: 0
+            });
+
+        } catch (error) {
+            console.error('❌ GetContributions failed:', error.message);
+            callback(error, null);
+        }
+    }
+
+    /**
+     * GetContributionsByIdentity - Get contributions by identity
+     * @param {Object} call - gRPC call object
+     * @param {Function} callback - gRPC callback function
+     */
+    async GetContributionsByIdentity(call, callback) {
+        try {
+            const { domain, identifier, ethereum_address } = call.request;
+            
+            console.log('👤 Getting contributions by identity:', { domain: domain.domain, identifier });
+
+            // TODO: Implement identity-based contribution lookup
+            callback(null, {
+                issues: [],
+                pull_requests: [],
+                reviews: [],
+                total_count: 0
+            });
+
+        } catch (error) {
+            console.error('❌ GetContributionsByIdentity failed:', error.message);
+            callback(error, null);
+        }
+    }
+
+    /**
+     * GetContributionsByRepository - Get contributions by repository
+     * @param {Object} call - gRPC call object
+     * @param {Function} callback - gRPC callback function
+     */
+    async GetContributionsByRepository(call, callback) {
+        try {
+            const { domain, path } = call.request;
+            const repositoryPath = `${domain.domain}/${path}`;
+            
+            console.log('📁 Getting contributions by repository:', repositoryPath);
+
+            // TODO: Implement repository-based contribution lookup
+            callback(null, {
+                issues: [],
+                pull_requests: [],
+                reviews: [],
+                total_count: 0
+            });
+
+        } catch (error) {
+            console.error('❌ GetContributionsByRepository failed:', error.message);
+            callback(error, null);
+        }
+    }
+
+    /**
+     * GetContributionsByIdentityUid - Get contributions by identity attestation UID
+     * @param {Object} call - gRPC call object
+     * @param {Function} callback - gRPC callback function
+     */
+    async GetContributionsByIdentityUid(call, callback) {
+        try {
+            const { attestation_uid, limit = 10, offset = 0 } = call.request;
+            
+            console.log('🔗 Getting contributions by identity UID:', attestation_uid);
+
+            // TODO: Implement UID-based contribution lookup
+            callback(null, {
+                issues: [],
+                pull_requests: [],
+                reviews: [],
+                total_count: 0
+            });
+
+        } catch (error) {
+            console.error('❌ GetContributionsByIdentityUid failed:', error.message);
+            callback(error, null);
+        }
+    }
+
+    /**
+     * GetContributionsByRepositoryUid - Get contributions by repository attestation UID
+     * @param {Object} call - gRPC call object
+     * @param {Function} callback - gRPC callback function
+     */
+    async GetContributionsByRepositoryUid(call, callback) {
+        try {
+            const { attestation_uid, limit = 10, offset = 0 } = call.request;
+            
+            console.log('🔗 Getting contributions by repository UID:', attestation_uid);
+
+            // TODO: Implement UID-based contribution lookup
+            callback(null, {
+                issues: [],
+                pull_requests: [],
+                reviews: [],
+                total_count: 0
+            });
+
+        } catch (error) {
+            console.error('❌ GetContributionsByRepositoryUid failed:', error.message);
+            callback(error, null);
+        }
+    }
+
+    /**
+     * GetLinkedIssues - Get issues linked to a pull request
+     * @param {Object} call - gRPC call object
+     * @param {Function} callback - gRPC callback function
+     */
+    async GetLinkedIssues(call, callback) {
+        try {
+            const { pr_attestation_uid } = call.request;
+            
+            console.log('🔗 Getting linked issues for PR:', pr_attestation_uid);
+
+            // TODO: Implement linked issue lookup
+            callback(null, {
+                issues: []
+            });
+
+        } catch (error) {
+            console.error('❌ GetLinkedIssues failed:', error.message);
+            callback(error, null);
+        }
+    }
+
+    /**
+     * GetPullRequestReviews - Get reviews for a pull request
+     * @param {Object} call - gRPC call object
+     * @param {Function} callback - gRPC callback function
+     */
+    async GetPullRequestReviews(call, callback) {
+        try {
+            const { pr_attestation_uid } = call.request;
+            
+            console.log('📝 Getting PR reviews for:', pr_attestation_uid);
+
+            // TODO: Implement PR review lookup
+            callback(null, {
+                reviews: []
+            });
+
+        } catch (error) {
+            console.error('❌ GetPullRequestReviews failed:', error.message);
+            callback(error, null);
         }
     }
 }

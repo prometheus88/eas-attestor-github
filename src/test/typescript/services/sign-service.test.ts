@@ -416,14 +416,14 @@ describe('SignService Tests', () => {
     });
   });
 
-  describe('GetValidatorAddress Method', () => {
-    it('should return validator address successfully', async () => {
+  describe('GetServerAddress Method', () => {
+    it('should return server address successfully', async () => {
       const mockCall = { request: {} };
 
-      await signService.GetValidatorAddress(mockCall, mockCallback);
+      await signService.GetServerAddress(mockCall, mockCallback);
 
       expect(mockCallback).toHaveBeenCalledWith(null, {
-        validator_address: '0x1234567890123456789012345678901234567890'
+        address: '0x1234567890123456789012345678901234567890'
       });
     });
 
@@ -431,7 +431,7 @@ describe('SignService Tests', () => {
       signService.wallet = null;
       const mockCall = { request: {} };
 
-      await signService.GetValidatorAddress(mockCall, mockCallback);
+      await signService.GetServerAddress(mockCall, mockCallback);
 
       expect(mockCallback).toHaveBeenCalledWith(
         expect.objectContaining({

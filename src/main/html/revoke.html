@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Revoke EAS Attestation</title>
+    <script src="./config.js"></script>
     <script src="https://unpkg.com/ethers@6.13.4/dist/ethers.umd.min.js"></script>
     <script type="module">
         // Load EAS SDK from ESM.sh
@@ -264,25 +265,9 @@
         // Global state
         let walletAddress = null;
 
-        // EAS Contract addresses on Base networks
-        const EAS_ADDRESSES = {
-            'base-sepolia': {
-                eas: '0x4200000000000000000000000000000000000021',
-                schemaRegistry: '0x4200000000000000000000000000000000000020'
-            },
-            'base': {
-                eas: '0x4200000000000000000000000000000000000021', 
-                schemaRegistry: '0x4200000000000000000000000000000000000020'
-            }
-        };
-
-        const CHAIN_IDS = {
-            'base-sepolia': 84532,
-            'base': 8453
-        };
-
-        // Schema for validated domain identifier to Ethereum address attestation
-        const ATTESTATION_SCHEMA_UID = "0xe5daad34f7c6c87eb60d2d32bde166ff4b87c8d165a95af58a93e774fc28c96e";
+        // Use centralized configuration
+        const EAS_ADDRESSES = window.EAS_CONFIG.contracts;
+        const CHAIN_IDS = window.EAS_CONFIG.chainIds;
 
         async function connectWallet() {
             const status = document.getElementById('walletStatus');

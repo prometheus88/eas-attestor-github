@@ -340,8 +340,8 @@
             <a href="./index.html" class="nav-logo">🔗 EAS Attestor</a>
             <div class="nav-links">
                 <a href="./index.html" class="nav-link active">Browse</a>
-                <a href="./register.html" class="nav-link">Register Identity</a>
-                <a href="./register-repository.html" class="nav-link">Register Repo</a>
+                <a href="./identity-registration.html" class="nav-link">Register Identity</a>
+                <a href="./repository-registration.html" class="nav-link">Register Repo</a>
                 <a href="./verify.html" class="nav-link">Verify</a>
                 <a href="./revoke.html" class="nav-link">Revoke</a>
             </div>
@@ -354,9 +354,9 @@
             <p class="subtitle">Verified GitHub-to-Ethereum identity attestations</p>
             
             <div class="controls">
-                <button onclick="connectWallet()">Connect Wallet</button>
                 <input type="text" class="filter-input" id="filterInput" placeholder="Filter by GitHub username or address...">
                 <button onclick="loadAttestations()" id="loadButton">Load Attestations</button>
+                <button onclick="connectWallet()">Connect Wallet</button>
             </div>
         </div>
 
@@ -376,7 +376,6 @@
         // Use centralized configuration
         const EAS_ADDRESSES = window.EAS_CONFIG.contracts;
         const CHAIN_IDS = window.EAS_CONFIG.chainIds;
-        const ATTESTATION_SCHEMA_UID = window.EAS_CONFIG.attestationSchemaUid;
         const KNOWN_VALIDATOR_ADDRESS = window.EAS_CONFIG.validatorAddress;
 
         async function connectWallet() {
@@ -423,11 +422,6 @@
             const button = document.getElementById('loadButton');
             const status = document.getElementById('status');
 
-            if (!provider) {
-                status.innerHTML = '<div class="status error">Please connect your wallet first</div>';
-                return;
-            }
-
             try {
                 button.disabled = true;
                 button.textContent = 'Loading...';
@@ -438,6 +432,12 @@
                         Fetching attestations from EAS GraphQL API...
                     </div>
                 `;
+
+                // Load schema UID from config
+                const configResponse = await fetch('./config/schemas.json');
+                const configData = await configResponse.json();
+                const identityDeployment = configData.deployments.find(d => d.contractName === 'Identity');
+                const schemaUID = identityDeployment.contractAddress;
 
                 // Fetch attestations using GraphQL API
                 const response = await fetch('https://base-sepolia.easscan.org/graphql', {
@@ -467,7 +467,7 @@
                             }
                         `,
                         variables: {
-                            schemaId: ATTESTATION_SCHEMA_UID
+                            schemaId: schemaUID
                         }
                     })
                 });
@@ -508,7 +508,12 @@
         }
 
         async function processAttestations(rawAttestations) {
-            const schemaEncoder = new window.SchemaEncoder("string domain,string identifier,string ethereumAddress,string proofUrl,address validator,bytes validationSig");
+            // Load schema from JSON
+            const schemaResponse = await fetch('./json/attestor/v1/attestor.json');
+            const schemaData = await schemaResponse.json();
+            const schemaDefinition = schemaData.schemas.identity.definition;
+            
+            const schemaEncoder = new window.SchemaEncoder(schemaDefinition);
             
             return rawAttestations.map(attestation => {
                 try {

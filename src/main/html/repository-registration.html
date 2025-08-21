@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EAS Attestor for Github</title>
+    <title>EAS Repository Registration</title>
     <script src="./config.js"></script>
     <script src="https://unpkg.com/ethers@6.13.4/dist/ethers.umd.min.js"></script>
     <script>
@@ -148,26 +148,6 @@
             font-size: 1.1rem;
         }
 
-        .step {
-            background: #f8f9fa;
-            border-radius: 12px;
-            padding: 25px;
-            margin: 20px 0;
-            text-align: left;
-            border-left: 4px solid #667eea;
-        }
-
-        .step h3 {
-            color: #2c3e50;
-            margin-bottom: 10px;
-            font-size: 1.1rem;
-        }
-
-        .step p {
-            color: #6c757d;
-            margin-bottom: 15px;
-        }
-
         button {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -305,6 +285,29 @@
             background: #28a745;
         }
 
+        .instructions {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            text-align: left;
+        }
+
+        .instructions h4 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+
+        .instructions ol {
+            color: #856404;
+            margin-left: 20px;
+        }
+
+        .instructions li {
+            margin-bottom: 5px;
+        }
+
         @media (max-width: 768px) {
             .nav-container {
                 flex-direction: column;
@@ -328,7 +331,8 @@
             <a href="./index.html" class="nav-logo">🔗 EAS Attestor</a>
             <div class="nav-links">
                 <a href="./index.html" class="nav-link">Browse</a>
-                <a href="./register.html" class="nav-link active">Register</a>
+                <a href="./register.html" class="nav-link">Register</a>
+                <a href="./repository-registration.html" class="nav-link active">Repository</a>
                 <a href="./verify.html" class="nav-link">Verify</a>
                 <a href="./revoke.html" class="nav-link">Revoke</a>
             </div>
@@ -337,46 +341,61 @@
 
     <div class="page-container">
         <div class="container">
-        <h1>🔗 EAS Attestor for Github</h1>
-        <p class="subtitle">Link your GitHub username to your Ethereum address with cryptographic proof</p>
+        <h1>🏠 Repository Registration</h1>
+        <p class="subtitle">Register your GitHub repository for contribution attestations</p>
         
         <div class="workflow">
             <!-- Step 1: Connect Wallet -->
             <div class="step-card active" id="card1">
                 <h3><span class="step-indicator active">1</span>Connect Wallet</h3>
                 <div class="step-content">
-                    <p>Connect your Ethereum wallet to get started. We support MetaMask and other Web3 wallets.</p>
+                    <p>Connect your Ethereum wallet to get started. You must be the repository owner.</p>
                     <button id="connectWallet" onclick="connectWallet()">Connect Wallet</button>
                     <div id="walletStatus"></div>
                 </div>
             </div>
 
-            <!-- Step 2: Sign Message -->
+            <!-- Step 2: Repository & Sign -->
             <div class="step-card disabled" id="card2">
-                <h3><span class="step-indicator">2</span>Sign Message</h3>
+                <h3><span class="step-indicator">2</span>Repository & Sign</h3>
                 <div class="step-content">
-                    <p>Enter your GitHub username and sign a verification message.</p>
+                    <p>Enter your repository path and sign ownership message.</p>
                     <div class="input-group">
-                        <label for="identifier">GitHub Username:</label>
-                        <input type="text" id="identifier" placeholder="e.g., octocat" />
+                        <label for="repoPath">Repository Path:</label>
+                        <input type="text" id="repoPath" placeholder="e.g., owner/repo-name" />
                     </div>
-                    <button id="signMessage" onclick="signMessage()" disabled>Sign Verification Message</button>
+                    <button id="signMessage" onclick="signMessage()" disabled>Sign Ownership Message</button>
                     <div id="signatureStatus"></div>
                 </div>
             </div>
 
-            <!-- Step 3: Create Gist & Validate -->
+            <!-- Step 3: Create Issue & Validate -->
             <div class="step-card disabled" id="card3">
-                <h3><span class="step-indicator">3</span>Create Gist & Validate</h3>
+                <h3><span class="step-indicator">3</span>Create Issue & Validate</h3>
                 <div class="step-content">
-                    <p>Create a GitHub gist with your signed data and trigger validation.</p>
+                    <p>Create a GitHub issue with your registration data and validate.</p>
+                    
+                    <div class="instructions hidden" id="issueInstructions">
+                        <h4>📝 Create GitHub Issue:</h4>
+                        <ol>
+                            <li>Go to your repository on GitHub</li>
+                            <li>Click "Issues" tab</li>
+                            <li>Click "New Issue"</li>
+                            <li>Title: "EAS Repository Registration"</li>
+                            <li>Copy the JSON below into the issue body</li>
+                            <li>Click "Submit new issue"</li>
+                            <li>Copy the issue URL and paste it below</li>
+                        </ol>
+                    </div>
+                    
                     <div id="jsonOutput" class="code-block hidden"></div>
                     <button class="copy-button hidden" id="copyJson" onclick="copyJson()">📋 Copy JSON</button>
+                    
                     <div class="input-group">
-                        <label for="proof_url">Paste your Gist URL here:</label>
-                        <input type="text" id="proof_url" placeholder="Paste your Gist URL here..." />
+                        <label for="issueUrl">GitHub Issue URL:</label>
+                        <input type="text" id="issueUrl" placeholder="https://github.com/owner/repo/issues/123" />
                     </div>
-                    <button id="validateGist" onclick="validateGist()" disabled>Validate (30-120s)</button>
+                    <button id="validateIssue" onclick="validateIssue()" disabled>Validate Issue</button>
                     <div id="validationStatus"></div>
                 </div>
             </div>
@@ -385,20 +404,18 @@
             <div class="step-card disabled" id="card4">
                 <h3><span class="step-indicator">4</span>Submit to Blockchain</h3>
                 <div class="step-content">
-                    <p>Submit your validated attestation to the blockchain.</p>
-                    <button id="submitAttestation" onclick="submitAttestation()" disabled>Submit Attestation</button>
+                    <p>Submit your validated repository registration to the blockchain.</p>
+                    <button id="submitAttestation" onclick="submitAttestation()" disabled>Submit Registration</button>
                     <div id="submissionStatus"></div>
                     <div id="completionStatus"></div>
                 </div>
             </div>
         </div>
 
-
         <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e9ecef; font-size: 0.9rem; color: #6c757d;">
             <p>🔒 All cryptographic operations happen in your browser. No private keys are transmitted.</p>
             <p style="margin-top: 10px;">
-                <a href="./docs/" style="color: #667eea; text-decoration: none;">📖 Documentation</a> | 
-                <a href="{{site.github.repository_url}}" style="color: #667eea; text-decoration: none;">💻 Source Code</a>
+                <strong>Note:</strong> You must be the repository owner and have an existing EAS identity attestation.
             </p>
         </div>
         </div>
@@ -408,23 +425,12 @@
         // Global state
         let walletAddress = null;
         let signature = null;
-        let verificationData = null;
+        let registrationData = null;
         let provider = null;
-
-        // Debug: Check what's available on window
-        console.log('Available on window:', Object.keys(window).filter(k => k.includes('EAS') || k.includes('Schema')));
-        console.log('window.EAS:', window.EAS);
-        console.log('window.ethers:', window.ethers);
 
         // Use centralized configuration
         const EAS_ADDRESSES = window.EAS_CONFIG.contracts;
         const CHAIN_IDS = window.EAS_CONFIG.chainIds;
-
-        // Schema for validated domain identifier to Ethereum address attestation
-        // Schema loaded from attestor.json - authoritative source
-        // domain = window.EAS_CONFIG.github.domain, identifier = github username, ethereumAddress = 0x..., proofUrl = gist URL
-        // validator = trusted validator address, validationSignature = GitHub Actions validation signature
-        // Schema UID loaded dynamically from deployment config
 
         async function connectWallet() {
             const button = document.getElementById('connectWallet');
@@ -438,7 +444,6 @@
                     throw new Error('Please install MetaMask or another Web3 wallet');
                 }
 
-                // Request account access
                 const accounts = await window.ethereum.request({
                     method: 'eth_requestAccounts'
                 });
@@ -499,9 +504,8 @@
                 document.getElementById('card2').classList.add('active');
                 document.getElementById('card2').classList.remove('disabled');
                 document.getElementById('card2').querySelector('.step-indicator').classList.add('active');
-                enableUsernameInput();
+                enableRepoInput();
                 
-                // Reset button
                 button.disabled = false;
                 button.textContent = '✅ Connected';
 
@@ -516,23 +520,24 @@
             }
         }
 
-        function enableUsernameInput() {
-            const input = document.getElementById('identifier');
+        function enableRepoInput() {
+            const input = document.getElementById('repoPath');
             const button = document.getElementById('signMessage');
             
             input.addEventListener('input', () => {
-                const username = input.value.trim();
-                button.disabled = username.length === 0;
+                const repoPath = input.value.trim();
+                const isValidPath = /^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(repoPath);
+                button.disabled = !isValidPath;
             });
         }
 
         async function signMessage() {
             const button = document.getElementById('signMessage');
             const status = document.getElementById('signatureStatus');
-            const username = document.getElementById('identifier').value.trim();
+            const repoPath = document.getElementById('repoPath').value.trim();
             
-            if (!username) {
-                status.innerHTML = '<div class="status error">Please enter a GitHub username</div>';
+            if (!repoPath || !/^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(repoPath)) {
+                status.innerHTML = '<div class="status error">Please enter a valid repository path (owner/repo)</div>';
                 return;
             }
 
@@ -541,26 +546,30 @@
                 button.textContent = 'Signing...';
                 
                 const timestamp = Math.floor(Date.now() / 1000);
-                const message = `I am linking my GitHub account "${username}" to my Ethereum address ${walletAddress}. Timestamp: ${timestamp}`;
+                const message = `I am registering repository "${repoPath}" for EAS contribution attestations. Ethereum address: ${walletAddress}. Timestamp: ${timestamp}`;
                 
                 signature = await window.ethereum.request({
                     method: 'personal_sign',
                     params: [message, walletAddress]
                 });
 
-                verificationData = {
+                // Generate webhook secret (placeholder - server will generate actual secret)
+                const webhookSecret = `webhook_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+                registrationData = {
                     message: message,
                     signature: signature,
-                    address: walletAddress,
-                    github_username: username,
+                    registrant: walletAddress,
+                    repository_path: repoPath,
                     timestamp: timestamp,
+                    webhook_secret: webhookSecret,
                     version: "1.0"
                 };
 
                 status.innerHTML = `
                     <div class="status success">
                         <strong>✅ Message Signed Successfully!</strong><br>
-                        Ready to create GitHub Gist
+                        Ready to create GitHub issue
                     </div>
                 `;
 
@@ -573,9 +582,8 @@
                 document.getElementById('card3').classList.add('active');
                 document.getElementById('card3').classList.remove('disabled');
                 document.getElementById('card3').querySelector('.step-indicator').classList.add('active');
-                showJsonOutput();
+                showIssueInstructions();
                 
-                // Reset button
                 button.disabled = false;
                 button.textContent = '✅ Signed';
 
@@ -586,28 +594,30 @@
                     </div>
                 `;
                 button.disabled = false;
-                button.textContent = 'Sign Verification Message';
+                button.textContent = 'Sign Ownership Message';
             }
         }
 
-        function showJsonOutput() {
+        function showIssueInstructions() {
+            const instructions = document.getElementById('issueInstructions');
             const jsonOutput = document.getElementById('jsonOutput');
             const copyButton = document.getElementById('copyJson');
-            const gistInput = document.getElementById('proof_url');
-            const validateButton = document.getElementById('validateGist');
+            const issueInput = document.getElementById('issueUrl');
+            const validateButton = document.getElementById('validateIssue');
             
-            jsonOutput.textContent = JSON.stringify(verificationData, null, 2);
+            instructions.classList.remove('hidden');
+            jsonOutput.textContent = JSON.stringify(registrationData, null, 2);
             jsonOutput.classList.remove('hidden');
             copyButton.classList.remove('hidden');
             
-            gistInput.addEventListener('input', () => {
-                const url = gistInput.value.trim();
-                validateButton.disabled = !isValidGistUrl(url);
+            issueInput.addEventListener('input', () => {
+                const url = issueInput.value.trim();
+                validateButton.disabled = !isValidIssueUrl(url);
             });
         }
 
         function copyJson() {
-            const jsonText = JSON.stringify(verificationData, null, 2);
+            const jsonText = JSON.stringify(registrationData, null, 2);
             navigator.clipboard.writeText(jsonText).then(() => {
                 const button = document.getElementById('copyJson');
                 const originalText = button.textContent;
@@ -618,75 +628,249 @@
             });
         }
 
-        function isValidGistUrl(url) {
+        function isValidIssueUrl(url) {
             try {
                 const urlObj = new URL(url);
-                return urlObj.hostname === new URL(window.EAS_CONFIG.github.gistUrl).hostname && urlObj.pathname.includes('/');
+                return urlObj.hostname === 'github.com' && urlObj.pathname.includes('/issues/');
             } catch {
                 return false;
             }
         }
 
-        async function requestValidation(identifier, proof_url, ethereum_address) {
+        async function validateIssue() {
+            const button = document.getElementById('validateIssue');
+            const status = document.getElementById('validationStatus');
+            const issueUrl = document.getElementById('issueUrl').value.trim();
+            
             try {
-                // Get the appropriate validator endpoint
-                const validatorUrl = window.EAS_CONFIG.api.validator.getEndpoint();
+                button.disabled = true;
+                button.textContent = 'Validating...';
+
+                // Extract repository path from issue URL
+                const urlObj = new URL(issueUrl);
+                const pathParts = urlObj.pathname.split('/');
+                const issueRepoPath = `${pathParts[1]}/${pathParts[2]}`;
                 
-                // Call the validator service
-                const response = await fetch(`${validatorUrl}/validate`, {
+                // Verify issue URL matches repository path
+                if (issueRepoPath !== registrationData.repository_path) {
+                    throw new Error(`Issue must be in repository ${registrationData.repository_path}, found ${issueRepoPath}`);
+                }
+
+                // Call real validation service
+                status.innerHTML = `
+                    <div class="status info">
+                        <strong>🔄 Validating issue...</strong><br>
+                        Checking repository ownership and issue content...
+                    </div>
+                `;
+
+                // Extract issue number from URL
+                const issueNumber = pathParts[4]; // /owner/repo/issues/123
+                if (!issueNumber || isNaN(parseInt(issueNumber))) {
+                    throw new Error('Invalid issue URL format');
+                }
+
+                // Call the validator service to verify the GitHub issue
+                const validatorEndpoint = window.EAS_CONFIG.api.validator.getEndpoint();
+                const response = await fetch(`${validatorEndpoint}/validate-issue`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        identifier: identifier,
-                        proof_url: proof_url,
-                        ethereum_address: ethereum_address
+                        repository_path: registrationData.repository_path,
+                        issue_url: issueUrl,
+                        issue_number: parseInt(issueNumber),
+                        registrant: currentAccount
                     })
                 });
 
                 if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || `Validation service error: ${response.status}`);
+                    const error = await response.json().catch(() => ({ message: 'Validation failed' }));
+                    throw new Error(error.message || 'Issue validation failed');
                 }
 
-                const result = await response.json();
-                
-                if (!result.success) {
-                    throw new Error(result.error || 'Validation failed');
+                const validationData = await response.json();
+                if (!validationData.success) {
+                    throw new Error(validationData.message || 'Issue validation failed');
                 }
 
-                return {
-                    success: true,
-                    validationSignature: result.validationSignature,
-                    validator: result.validator
-                };
+                // Store validation results globally for submitAttestation function
+                window.validationResult = validationData;
+                window.validatedIssueUrl = issueUrl;
+
+                status.innerHTML = `
+                    <div class="status success">
+                        <strong>✅ Validation Complete!</strong><br>
+                        Repository ownership verified. Ready to submit registration.
+                    </div>
+                `;
+
+                // Show step 4
+                document.getElementById('card3').classList.add('completed');
+                document.getElementById('card3').classList.remove('active');
+                document.getElementById('card3').querySelector('.step-indicator').classList.add('completed');
+                document.getElementById('card3').querySelector('.step-indicator').classList.remove('active');
                 
+                document.getElementById('card4').classList.add('active');
+                document.getElementById('card4').classList.remove('disabled');
+                document.getElementById('card4').querySelector('.step-indicator').classList.add('active');
+                document.getElementById('submitAttestation').disabled = false;
+                
+                button.textContent = '✅ Validated';
+
             } catch (error) {
-                return {
-                    success: false,
-                    error: error.message
-                };
+                status.innerHTML = `
+                    <div class="status error">
+                        <strong>❌ Validation Failed:</strong> ${error.message}
+                    </div>
+                `;
+                button.disabled = false;
+                button.textContent = 'Validate Issue';
             }
         }
 
-        function extractGistId(proof_url) {
+        async function submitAttestation() {
+            const button = document.getElementById('submitAttestation');
+            const status = document.getElementById('submissionStatus');
+            
+            // Wait for EAS SDK to be ready
+            await window.easSDKReady;
+            
+            if (!window.validationResult || !window.validatedIssueUrl) {
+                status.innerHTML = `
+                    <div class="status error">
+                        <strong>❌ Error:</strong> No validation data found. Please validate first.
+                    </div>
+                `;
+                return;
+            }
+            
             try {
-                const url = new URL(proof_url);
-                const pathParts = url.pathname.split('/');
-                return pathParts[pathParts.length - 1];
-            } catch {
-                return null;
+                button.disabled = true;
+                button.textContent = 'Submitting...';
+                
+                // Check network again
+                const chainId = await window.ethereum.request({
+                    method: 'eth_chainId'
+                });
+                const currentChainId = parseInt(chainId, 16);
+                const networkName = Object.keys(CHAIN_IDS).find(key => 
+                    CHAIN_IDS[key] === currentChainId
+                );
+                
+                if (!networkName) {
+                    throw new Error('Please switch to Base or Base Sepolia network');
+                }
+
+                // Get EAS contract address for this network
+                const easAddress = EAS_ADDRESSES[networkName]?.eas;
+                if (!easAddress) {
+                    throw new Error('EAS not deployed on this network');
+                }
+
+                // Initialize EAS SDK
+                const provider = new ethers.BrowserProvider(window.ethereum);
+                const signer = await provider.getSigner();
+                const eas = new window.EAS(easAddress);
+                eas.connect(signer);
+
+                const validationSignature = window.validationResult.validationSignature;
+                const validator = window.validationResult.validator;
+                const repoPath = registrationData.repository_path;
+                const issueUrl = window.validatedIssueUrl;
+
+                status.innerHTML = `
+                    <div class="status info">
+                        <strong>🚀 Submitting to blockchain...</strong><br>
+                        Creating repository registration attestation...
+                    </div>
+                `;
+
+                // Load schema from JSON and schema UID from config
+                const [schemaResponse, configResponse] = await Promise.all([
+                    fetch('./json/attestor/v1/attestor.json'),
+                    fetch('./config/schemas.json')
+                ]);
+                const schemaData = await schemaResponse.json();
+                const configData = await configResponse.json();
+                
+                const schemaDefinition = schemaData.schemas['repository-registration'].definition;
+                const repoDeployment = configData.deployments.find(d => d.contractName === 'RepositoryRegistration');
+                const schemaUID = repoDeployment.contractAddress;
+                
+                const schemaEncoder = new window.SchemaEncoder(schemaDefinition);
+                const encodedData = schemaEncoder.encodeData([
+                    { name: "domain", value: window.EAS_CONFIG.github.domain, type: "string" },
+                    { name: "path", value: repoPath, type: "string" },
+                    { name: "registrant", value: walletAddress, type: "address" },
+                    { name: "registrantSignature", value: signature, type: "bytes" },
+                    { name: "proofUrl", value: issueUrl, type: "string" },
+                    { name: "validator", value: validator, type: "address" },
+                    { name: "validationSignature", value: validationSignature, type: "bytes" }
+                ]);
+
+                // Create the attestation
+                const tx = await eas.attest({
+                    schema: schemaUID,
+                    data: {
+                        recipient: walletAddress,
+                        expirationTime: 0n,
+                        revocable: true,
+                        data: encodedData
+                    }
+                });
+
+                status.innerHTML = `
+                    <div class="status success">
+                        <strong>🚀 Registration Created!</strong><br>
+                        Transaction: <code>${tx.txHash}</code><br>
+                        <small>Waiting for confirmation...</small>
+                    </div>
+                `;
+
+                // Wait for transaction confirmation
+                const receipt = await tx.wait();
+                
+                status.innerHTML = `
+                    <div class="status success">
+                        <strong>✅ Registration Confirmed!</strong><br>
+                        Transaction: <code>${receipt.transactionHash}</code><br>
+                        <small>Repository ${repoPath} registered for contribution attestations</small>
+                    </div>
+                `;
+
+                // Mark card 4 as completed
+                document.getElementById('card4').classList.add('completed');
+                document.getElementById('card4').querySelector('.step-indicator').classList.add('completed');
+                document.getElementById('card4').querySelector('.step-indicator').classList.remove('active');
+                
+                showCompletion(receipt.transactionHash, issueUrl);
+                button.textContent = '✅ Submitted';
+
+            } catch (error) {
+                status.innerHTML = `
+                    <div class="status error">
+                        <strong>❌ Submission Failed:</strong> ${error.message}
+                    </div>
+                `;
+                button.disabled = false;
+                button.textContent = 'Submit Registration';
             }
         }
 
-
-        function getCurrentNetwork() {
-            // Determine network based on current chain
-            const chainId = window.ethereum.chainId;
-            if (parseInt(chainId, 16) === 84532) return 'sepolia';
-            if (parseInt(chainId, 16) === 8453) return 'mainnet';
-            return 'sepolia'; // default
+        function showCompletion(txHash, issueUrl) {
+            const status = document.getElementById('completionStatus');
+            
+            status.innerHTML = `
+                <div class="status info">
+                    <strong>📋 Registration Summary:</strong><br>
+                    Repository: <code>${registrationData.repository_path}</code><br>
+                    Registrant: <code>${registrationData.registrant}</code><br>
+                    Proof: <a href="${issueUrl}" target="_blank">View Issue</a><br>
+                    Transaction: <code>${txHash}</code>
+                </div>
+            `;
         }
 
         async function switchToBaseSepolia() {
@@ -695,11 +879,9 @@
                     method: 'wallet_switchEthereumChain',
                     params: [{ chainId: '0x14a34' }], // 84532 in hex
                 });
-                // Reconnect after network switch
                 setTimeout(() => connectWallet(), 1000);
             } catch (error) {
                 if (error.code === 4902) {
-                    // Network not added to wallet, add it
                     await addBaseSepolia();
                 } else {
                     console.error('Failed to switch network:', error);
@@ -713,11 +895,9 @@
                     method: 'wallet_switchEthereumChain',
                     params: [{ chainId: '0x2105' }], // 8453 in hex
                 });
-                // Reconnect after network switch
                 setTimeout(() => connectWallet(), 1000);
             } catch (error) {
                 if (error.code === 4902) {
-                    // Network not added to wallet, add it
                     await addBase();
                 } else {
                     console.error('Failed to switch network:', error);
@@ -769,247 +949,13 @@
             }
         }
 
-
-        async function validateGist() {
-            const button = document.getElementById('validateGist');
-            const status = document.getElementById('validationStatus');
-            const gistUrl = document.getElementById('proof_url').value.trim();
-            
-            try {
-                button.disabled = true;
-                button.textContent = 'Validating (30-120s)...';
-
-                // Check if we're on a supported network
-                const chainId = await window.ethereum.request({
-                    method: 'eth_chainId'
-                });
-                const currentChainId = parseInt(chainId, 16);
-                const supportedChainIds = Object.values(CHAIN_IDS);
-                
-                if (!supportedChainIds.includes(currentChainId)) {
-                    throw new Error('Please switch to Base or Base Sepolia network');
-                }
-                
-                const networkName = Object.keys(CHAIN_IDS).find(key => 
-                    CHAIN_IDS[key] === currentChainId
-                );
-                
-                if (!networkName) {
-                    throw new Error('Please switch to Base or Base Sepolia network');
-                }
-
-                // Get EAS contract address for this network
-                const easAddress = EAS_ADDRESSES[networkName]?.eas;
-                if (!easAddress) {
-                    throw new Error('EAS not deployed on this network');
-                }
-
-                // Extract verification data
-                const githubUsername = verificationData.github_username;
-
-                // Trigger GitHub Actions validation and wait for results
-                status.innerHTML = `
-                    <div class="status info">
-                        <strong>🔄 Requesting validation...</strong><br>
-                        Triggering GitHub Actions validation workflow...
-                    </div>
-                `;
-
-                const validationResult = await requestValidation(githubUsername, gistUrl, walletAddress);
-                
-                if (!validationResult.success) {
-                    throw new Error(`Validation failed: ${validationResult.error}`);
-                }
-
-                // Store validation results globally for submitAttestation function
-                window.validationResult = validationResult;
-                window.validatedGistUrl = gistUrl;
-
-                status.innerHTML = `
-                    <div class="status success">
-                        <strong>✅ Validation Complete!</strong><br>
-                        Ready to submit attestation to blockchain.
-                    </div>
-                `;
-
-                // Show step 4
-                document.getElementById('card3').classList.add('completed');
-                document.getElementById('card3').classList.remove('active');
-                document.getElementById('card3').querySelector('.step-indicator').classList.add('completed');
-                document.getElementById('card3').querySelector('.step-indicator').classList.remove('active');
-                
-                document.getElementById('card4').classList.add('active');
-                document.getElementById('card4').classList.remove('disabled');
-                document.getElementById('card4').querySelector('.step-indicator').classList.add('active');
-                document.getElementById('submitAttestation').disabled = false;
-                
-                button.textContent = '✅ Validated';
-
-            } catch (error) {
-                status.innerHTML = `
-                    <div class="status error">
-                        <strong>❌ Attestation Failed:</strong> ${error.message}
-                    </div>
-                `;
-                button.disabled = false;
-                button.textContent = 'Validate (30-120s)';
-            }
-        }
-
-        async function submitAttestation() {
-            const button = document.getElementById('submitAttestation');
-            const status = document.getElementById('submissionStatus');
-            
-            // Wait for EAS SDK to be ready
-            await window.easSDKReady;
-            
-            if (!window.validationResult || !window.validatedGistUrl) {
-                status.innerHTML = `
-                    <div class="status error">
-                        <strong>❌ Error:</strong> No validation data found. Please validate first.
-                    </div>
-                `;
-                return;
-            }
-            
-            try {
-                button.disabled = true;
-                button.textContent = 'Submitting...';
-                
-                // Check network again
-                const chainId = await window.ethereum.request({
-                    method: 'eth_chainId'
-                });
-                const currentChainId = parseInt(chainId, 16);
-                const networkName = Object.keys(CHAIN_IDS).find(key => 
-                    CHAIN_IDS[key] === currentChainId
-                );
-                
-                if (!networkName) {
-                    throw new Error('Please switch to Base or Base Sepolia network');
-                }
-
-                // Get EAS contract address for this network
-                const easAddress = EAS_ADDRESSES[networkName]?.eas;
-                if (!easAddress) {
-                    throw new Error('EAS not deployed on this network');
-                }
-
-                // Initialize EAS SDK
-                const provider = new ethers.BrowserProvider(window.ethereum);
-                const signer = await provider.getSigner();
-                const eas = new window.EAS(easAddress);
-                eas.connect(signer);
-
-                const validationSignature = window.validationResult.validationSignature;
-                const validator = window.validationResult.validator;
-                const githubUsername = verificationData.github_username;
-                const gistUrl = window.validatedGistUrl;
-
-                status.innerHTML = `
-                    <div class="status info">
-                        <strong>🚀 Submitting to blockchain...</strong><br>
-                        Creating attestation transaction...
-                    </div>
-                `;
-
-                // Load schema from JSON and schema UID from config
-                const [schemaResponse, configResponse] = await Promise.all([
-                    fetch('./json/attestor/v1/attestor.json'),
-                    fetch('./config/schemas.json')
-                ]);
-                const schemaData = await schemaResponse.json();
-                const configData = await configResponse.json();
-                
-                const schemaDefinition = schemaData.schemas.identity.definition;
-                const identityDeployment = configData.deployments.find(d => d.contractName === 'Identity');
-                const schemaUID = identityDeployment.contractAddress;
-                
-                const schemaEncoder = new window.SchemaEncoder(schemaDefinition);
-                const encodedData = schemaEncoder.encodeData([
-                    { name: "domain", value: window.EAS_CONFIG.github.domain, type: "string" },
-                    { name: "identifier", value: githubUsername, type: "string" },
-                    { name: "ethereumAddress", value: walletAddress, type: "address" },
-                    { name: "proofUrl", value: gistUrl, type: "string" },
-                    { name: "validator", value: validator, type: "address" },
-                    { name: "validationSignature", value: validationSignature, type: "bytes" }
-                ]);
-
-                // Create the attestation
-                const tx = await eas.attest({
-                    schema: schemaUID,
-                    data: {
-                        recipient: walletAddress,
-                        expirationTime: 0n,
-                        revocable: true,
-                        data: encodedData
-                    }
-                });
-
-                status.innerHTML = `
-                    <div class="status success">
-                        <strong>🚀 Attestation Created!</strong><br>
-                        Transaction: <code>${tx.txHash}</code><br>
-                        <small>Waiting for confirmation...</small>
-                    </div>
-                `;
-
-                // Wait for transaction confirmation
-                const receipt = await tx.wait();
-                
-                status.innerHTML = `
-                    <div class="status success">
-                        <strong>✅ Attestation Confirmed!</strong><br>
-                        Transaction: <code>${receipt.transactionHash}</code><br>
-                        <small>Identity ${githubUsername}@${window.EAS_CONFIG.github.domain} attested to ${walletAddress}</small>
-                    </div>
-                `;
-
-                // Mark card 4 as completed
-                document.getElementById('card4').classList.add('completed');
-                document.getElementById('card4').querySelector('.step-indicator').classList.add('completed');
-                document.getElementById('card4').querySelector('.step-indicator').classList.remove('active');
-                
-                showCompletion(receipt.transactionHash, gistUrl);
-                button.textContent = '✅ Submitted';
-
-            } catch (error) {
-                status.innerHTML = `
-                    <div class="status error">
-                        <strong>❌ Submission Failed:</strong> ${error.message}
-                    </div>
-                `;
-                button.disabled = false;
-                button.textContent = 'Submit Attestation';
-            }
-        }
-
-        function showCompletion(txHash, gistUrl) {
-            const status = document.getElementById('completionStatus');
-            
-            status.innerHTML = `
-                <div class="status info">
-                    <strong>📋 Summary:</strong><br>
-                    GitHub: <code>${verificationData.github_username}</code><br>
-                    Address: <code>${verificationData.address}</code><br>
-                    Gist: <a href="${gistUrl}" target="_blank">View Gist</a><br>
-                    Transaction: <code>${txHash}</code>
-                </div>
-            `;
-        }
-
-
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', () => {
-            // Set dynamic gist URL placeholder
-            document.getElementById('proof_url').placeholder = `${window.EAS_CONFIG.github.gistUrl}/username/...`;
-            
             // Check if wallet is already connected
             if (typeof window.ethereum !== 'undefined') {
                 window.ethereum.request({ method: 'eth_accounts' })
                     .then(accounts => {
                         if (accounts.length > 0) {
-                            // Auto-connect if previously connected
                             connectWallet();
                         }
                     })

@@ -33,11 +33,10 @@ window.EAS_CONFIG = {
         'base': 8453
     },
     
-    // Schema for validated domain identifier to Ethereum address attestation
-    attestationSchemaUid: "0xe5daad34f7c6c87eb60d2d32bde166ff4b87c8d165a95af58a93e774fc28c96e",
+    // Schema UIDs loaded dynamically from deployment configs
     
     // Our known validator address
-    validatorAddress: "0xCD57460f69Bc442BF4A6A90cD615BdE4232122DB",
+    validatorAddress: "0xcc084f7a8d127c5f56c6293852609c9fee7b27ed",
     
     // API endpoints
     api: {
@@ -46,7 +45,7 @@ window.EAS_CONFIG = {
             'base': 'https://base.easscan.org/graphql'
         },
         validator: {
-            local: 'http://localhost:8080',
+            local: 'http://localhost:6001',
             getEndpoint: function() {
                 // Check for environment-specific override (set via build/deployment)
                 if (window.EAS_VALIDATOR_URL) {

@@ -1,7 +1,7 @@
 services:
   validator:
     build:
-      context: ../../../src/main/typescript/validator
+      context: ../../../build/typescript/validator
       dockerfile: Dockerfile
     image: eas-validator:latest
     container_name: eas-validator
@@ -14,12 +14,6 @@ services:
     env_file:
       - ../../../src/main/typescript/validator/.env
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
     networks:
       - eas-network
 
@@ -32,8 +26,7 @@ services:
       - ../../build/html/dist:/usr/share/nginx/html:ro
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      validator:
-        condition: service_healthy
+      - validator
     restart: unless-stopped
     networks:
       - eas-network

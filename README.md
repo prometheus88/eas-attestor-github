@@ -206,7 +206,7 @@ Validates GitHub gist and creates attestation signature.
 ```json
 {
   "success": true,
-  "validationSig": "0x...",
+  "validationSignature": "0x...",
   "validatedAt": 1234567890,
   "validator": "0x...",
   "message": "GitHub:user|ETH:0x...|Gist:abc|Time:123"
