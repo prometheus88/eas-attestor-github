@@ -1,0 +1,11 @@
+version: v1
+plugins:
+  - plugin: buf.build/grpc-ecosystem/openapiv2
+    out: ../../../src/generated/openapi
+    opt:
+      - logtostderr=true
+      - json_names_for_fields=false
+      - allow_merge=true
+      - merge_file_name=attestor_api
+      - simple_operation_ids=true
+      - openapi_naming_strategy=fqn

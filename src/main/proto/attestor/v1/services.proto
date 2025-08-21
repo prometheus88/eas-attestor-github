@@ -5,56 +5,144 @@ package attestor.v1;
 option go_package = "github.com/allenday/eas-attestor-github/gen/attestor/v1";
 
 import "google/protobuf/empty.proto";
+import "google/api/annotations.proto";
 import "attestor/v1/messages.proto";
 
 // Generic attestation service - schema-driven EAS operations
 service AttestService {
   // Create attestation using dynamic schema encoding
-  rpc CreateAttestation(CreateAttestationRequest) returns (CreateAttestationResponse);
+  rpc CreateAttestation(CreateAttestationRequest) returns (CreateAttestationResponse) {
+    option (google.api.http) = {
+      post: "/v1/attest/create"
+      body: "*"
+    };
+  }
   
   // Get schema information
-  rpc GetSchemas(google.protobuf.Empty) returns (GetSchemasResponse);
+  rpc GetSchemas(google.protobuf.Empty) returns (GetSchemasResponse) {
+    option (google.api.http) = {
+      get: "/v1/attest/schemas"
+    };
+  }
   
   // Get specific schema definition
-  rpc GetSchema(GetSchemaRequest) returns (GetSchemaResponse);
+  rpc GetSchema(GetSchemaRequest) returns (GetSchemaResponse) {
+    option (google.api.http) = {
+      get: "/v1/attest/schema/{schema_type}"
+    };
+  }
 }
 
 // Server-side signing service for automated operations
 service SignService {
   // Server signs attestation using validator private key
-  rpc ServerSignAttestation(ServerSignAttestationRequest) returns (ServerSignAttestationResponse);
+  rpc ServerSignAttestation(ServerSignAttestationRequest) returns (ServerSignAttestationResponse) {
+    option (google.api.http) = {
+      post: "/v1/sign/attest"
+      body: "*"
+    };
+  }
   
   // Verify signatures
-  rpc VerifySignature(VerifySignatureRequest) returns (VerifySignatureResponse);
+  rpc VerifySignature(VerifySignatureRequest) returns (VerifySignatureResponse) {
+    option (google.api.http) = {
+      post: "/v1/sign/verify"
+      body: "*"
+    };
+  }
   
   // Get server's public address
-  rpc GetServerAddress(google.protobuf.Empty) returns (GetServerAddressResponse);
+  rpc GetServerAddress(google.protobuf.Empty) returns (GetServerAddressResponse) {
+    option (google.api.http) = {
+      get: "/v1/sign/address"
+    };
+  }
 }
 
 // Business logic service for contribution workflows
 service ContributionService {
   // Repository management
-  rpc RegisterRepository(RepositoryRegistration) returns (RegisterRepositoryResponse);
-  rpc GetWebhookSecret(Repository) returns (WebhookSecretResponse);
-  rpc ListRegisteredRepositories(google.protobuf.Empty) returns (ListRegisteredRepositoriesResponse);
+  rpc RegisterRepository(RepositoryRegistration) returns (RegisterRepositoryResponse) {
+    option (google.api.http) = {
+      post: "/v1/repository/register"
+      body: "*"
+    };
+  }
+  rpc GetWebhookSecret(Repository) returns (WebhookSecretResponse) {
+    option (google.api.http) = {
+      post: "/v1/repository/webhook-secret"
+      body: "*"
+    };
+  }
+  rpc ListRegisteredRepositories(google.protobuf.Empty) returns (ListRegisteredRepositoriesResponse) {
+    option (google.api.http) = {
+      get: "/v1/repository/list"
+    };
+  }
   
   // Identity management  
-  rpc RegisterIdentity(Identity) returns (RegisterIdentityResponse);
-  rpc ValidateIdentity(ValidateIdentityRequest) returns (ValidateIdentityResponse);
+  rpc RegisterIdentity(Identity) returns (RegisterIdentityResponse) {
+    option (google.api.http) = {
+      post: "/v1/identity/register"
+      body: "*"
+    };
+  }
+  rpc ValidateIdentity(ValidateIdentityRequest) returns (ValidateIdentityResponse) {
+    option (google.api.http) = {
+      post: "/v1/identity/validate"
+      body: "*"
+    };
+  }
   
   // Webhook processing
-  rpc ProcessWebhook(WebhookEvent) returns (ProcessWebhookResponse);
+  rpc ProcessWebhook(WebhookEvent) returns (ProcessWebhookResponse) {
+    option (google.api.http) = {
+      post: "/v1/webhook"
+      body: "*"
+    };
+  }
   
   // Contribution queries
-  rpc GetContributions(GetContributionsRequest) returns (GetContributionsResponse);
-  rpc GetContributionsByIdentity(Identity) returns (GetContributionsResponse);
-  rpc GetContributionsByRepository(Repository) returns (GetContributionsResponse);
+  rpc GetContributions(GetContributionsRequest) returns (GetContributionsResponse) {
+    option (google.api.http) = {
+      post: "/v1/contributions/query"
+      body: "*"
+    };
+  }
+  rpc GetContributionsByIdentity(Identity) returns (GetContributionsResponse) {
+    option (google.api.http) = {
+      post: "/v1/contributions/by-identity"
+      body: "*"
+    };
+  }
+  rpc GetContributionsByRepository(Repository) returns (GetContributionsResponse) {
+    option (google.api.http) = {
+      post: "/v1/contributions/by-repository"
+      body: "*"
+    };
+  }
   
   // Referential lookups
-  rpc GetContributionsByIdentityUid(GetContributionsByUidRequest) returns (GetContributionsResponse);
-  rpc GetContributionsByRepositoryUid(GetContributionsByUidRequest) returns (GetContributionsResponse);
-  rpc GetLinkedIssues(GetLinkedIssuesRequest) returns (GetLinkedIssuesResponse);
-  rpc GetPullRequestReviews(GetPullRequestReviewsRequest) returns (GetPullRequestReviewsResponse);
+  rpc GetContributionsByIdentityUid(GetContributionsByUidRequest) returns (GetContributionsResponse) {
+    option (google.api.http) = {
+      get: "/v1/contributions/by-identity-uid/{attestation_uid}"
+    };
+  }
+  rpc GetContributionsByRepositoryUid(GetContributionsByUidRequest) returns (GetContributionsResponse) {
+    option (google.api.http) = {
+      get: "/v1/contributions/by-repository-uid/{attestation_uid}"
+    };
+  }
+  rpc GetLinkedIssues(GetLinkedIssuesRequest) returns (GetLinkedIssuesResponse) {
+    option (google.api.http) = {
+      get: "/v1/contributions/pr/{pr_attestation_uid}/issues"
+    };
+  }
+  rpc GetPullRequestReviews(GetPullRequestReviewsRequest) returns (GetPullRequestReviewsResponse) {
+    option (google.api.http) = {
+      get: "/v1/contributions/pr/{pr_attestation_uid}/reviews"
+    };
+  }
 }
 
 // Attest Service Messages
