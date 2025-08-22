@@ -4,14 +4,16 @@ version: '3'
 vars:
   BUILD_DIR: build
   HTML_DIST_DIR: "{{.BUILD_DIR}}/html/dist"
+  REACT_SRC_DIR: "src/main/react"
+  REACT_DIST_DIR: "{{.BUILD_DIR}}/react/dist"
   VALIDATOR_SRC_DIR: "src/main/typescript/validator"
   VALIDATOR_BUILD_DIR: "{{.BUILD_DIR}}/typescript/validator"
 
 tasks:
   # Build tasks (application-specific only)
   build:
-    desc: Build all application components (dApp, server, and validator)
-    deps: [build:schemas, build:server, build:dist, build:validator]
+    desc: Build all application components (HTML dApp, React dApp, and validator)
+    deps: [build:schemas, build:server, build:dist, build:react, build:validator]
 
   build:schemas:
     desc: Generate TypeScript types and EAS schemas from protobuf definitions
@@ -72,7 +74,7 @@ tasks:
 
 
   build:dist:
-    desc: Build dApp for deployment
+    desc: Build HTML dApp for deployment (legacy)
     cmds:
       - mkdir -p {{.HTML_DIST_DIR}}
       - cp -r src/main/html/* {{.HTML_DIST_DIR}}/
@@ -98,6 +100,23 @@ tasks:
       - src/main/config/**/*
     generates:
       - "{{.HTML_DIST_DIR}}/**/*"
+
+  build:react:
+    desc: Build React dApp for deployment
+    dir: '{{.REACT_SRC_DIR}}'
+    deps: [react:install]
+    cmds:
+      - echo "Building React dApp..."
+      - npm run build
+      - echo "✅ React dApp built to {{.REACT_DIST_DIR}}"
+    sources:
+      - src/**/*
+      - index.html
+      - package.json
+      - vite.config.ts
+      - tsconfig.json
+    generates:
+      - "{{.REACT_DIST_DIR}}/**/*"
 
   build:validator:
     desc: Build validator service with HTML files and generated TypeScript
@@ -269,6 +288,57 @@ tasks:
     cmds:
       - echo "Checking validator health..."
       - curl -f http://localhost:5001/health || echo "Validator not responding"
+
+  # React dApp development tasks
+  react:install:
+    desc: Install React dApp dependencies
+    dir: '{{.REACT_SRC_DIR}}'
+    cmds:
+      - echo "Installing React dApp dependencies..."
+      - npm install
+
+  react:dev:
+    desc: Run React dApp in development mode
+    dir: '{{.REACT_SRC_DIR}}'
+    deps: [react:install]
+    cmds:
+      - echo "Starting React development server..."
+      - echo "React app will be available at http://localhost:3000"
+      - npm run dev
+
+  react:build:
+    desc: Build React dApp for production
+    dir: '{{.REACT_SRC_DIR}}'
+    deps: [react:install]
+    cmds:
+      - echo "Building React dApp for production..."
+      - npm run build
+      - echo "✅ React dApp built successfully"
+
+  react:preview:
+    desc: Preview React production build
+    dir: '{{.REACT_SRC_DIR}}'
+    deps: [react:build]
+    cmds:
+      - echo "Starting React preview server..."
+      - echo "Preview will be available at http://localhost:4173"
+      - npm run preview
+
+  react:lint:
+    desc: Lint React code
+    dir: '{{.REACT_SRC_DIR}}'
+    deps: [react:install]
+    cmds:
+      - echo "Linting React code..."
+      - npm run lint
+
+  react:lint:fix:
+    desc: Fix React linting issues
+    dir: '{{.REACT_SRC_DIR}}'
+    deps: [react:install]
+    cmds:
+      - echo "Fixing React linting issues..."
+      - npm run lint:fix
 
   validator:test:
     desc: Test validation endpoint (requires GITHUB_USERNAME, GIST_URL, ETH_ADDRESS)
